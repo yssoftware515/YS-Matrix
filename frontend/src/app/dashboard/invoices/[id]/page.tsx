@@ -87,7 +87,7 @@ export default function InvoicePage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-px bg-matrix-border">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-matrix-border">
             <div className="bg-matrix-panel p-5">
               <p className="section-title">بيانات العميل</p>
               <div className="space-y-2 text-sm">
@@ -109,7 +109,7 @@ export default function InvoicePage() {
           <div className="p-5">
             <p className="section-title">المنتجات</p>
             <div className="overflow-x-auto">
-              <table className="matrix-table w-full text-sm">
+              <table className="matrix-table min-w-[560px] w-full text-sm">
                 <thead><tr><th>#</th><th>المنتج</th><th>النوع</th><th>اللون</th><th>رقم الهيكل</th><th>رقم المحرك</th><th className="text-center">الكمية</th><th>سعر الوحدة</th><th>الإجمالي</th></tr></thead>
                 <tbody>
                   {invoice.items.map((item, idx) => (

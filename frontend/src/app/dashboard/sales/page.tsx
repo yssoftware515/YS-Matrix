@@ -415,7 +415,7 @@ export default function SalesPage() {
       ) : (
       <div className="matrix-panel overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-right">
+          <table className="min-w-[560px] w-full text-right">
             <thead style={{ background: 'rgba(10,18,31,0.6)' }}>
               <tr className="border-b border-matrix-border/70">
                 {['الفاتورة','المنتج','العميل','المبلغ','الدفع','الحالة','التاريخ',''].map((h) => (

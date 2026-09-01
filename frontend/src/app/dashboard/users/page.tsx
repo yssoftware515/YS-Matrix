@@ -198,7 +198,7 @@ export default function TenantUsersPage() {
     <DashboardLayout title="المستخدمون">
       <div className="space-y-5">
         {/* ── Stats ─────────────────────────────────────────── */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {[
             { label: 'إجمالي المستخدمين', value: stats.total, color: 'text-matrix-cyan', icon: UsersIcon },
             { label: 'نشطون',             value: stats.active, color: 'text-matrix-green', icon: ShieldCheck },

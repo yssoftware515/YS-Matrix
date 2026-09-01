@@ -444,7 +444,7 @@ export default function InventoryPage() {
 
   // ── Form JSX (shared between add + edit) ─────────────────────────────────────
   const FormBody = (
-    <div className="grid grid-cols-2 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div className="col-span-2">
         <label className="block text-xs font-mono uppercase tracking-widest text-matrix-subtle mb-1">
           نوع المنتج *

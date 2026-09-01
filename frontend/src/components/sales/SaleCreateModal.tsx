@@ -447,7 +447,7 @@ export function SaleCreateModal({ onClose }: { onClose: () => void }) {
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{   opacity: 0, height: 0 }}
-                className="grid grid-cols-2 gap-2 mt-2"
+                className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2"
               >
                 <input
                   className="matrix-input text-xs w-full col-span-2"
@@ -483,7 +483,7 @@ export function SaleCreateModal({ onClose }: { onClose: () => void }) {
           {/* ── Sale Type ── */}
           <div>
             <label className="matrix-label">نوع الدفع *</label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {(['CASH', 'INSTALLMENT'] as SaleType[]).map((t) => (
                 <button
                   key={t}
@@ -519,7 +519,7 @@ export function SaleCreateModal({ onClose }: { onClose: () => void }) {
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{   opacity: 0, height: 0 }}
-              className="grid grid-cols-2 gap-3"
+              className="grid grid-cols-1 sm:grid-cols-2 gap-3"
             >
               <div>
                 <label className="matrix-label">الدفعة الأولى (المقدمة) *</label>

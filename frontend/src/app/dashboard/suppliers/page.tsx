@@ -629,7 +629,7 @@ export default function SuppliersPage() {
           {selected && (
             <div className="space-y-5">
               {/* Info grid */}
-              <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
                 {(
                   [
                     ['الهاتف',     selected.phone   || '—'],

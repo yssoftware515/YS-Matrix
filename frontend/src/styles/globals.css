@@ -90,7 +90,7 @@ h1, h2, h3, h4, h5, h6 {
      in sales/page.tsx with no definition anywhere, so this was
      rendering as an unstyled native <button>. ── */
   .matrix-btn {
-    @apply inline-flex items-center gap-2 px-4 h-9 rounded-lg text-xs font-semibold tracking-wide;
+    @apply inline-flex items-center gap-2 px-4 h-11 md:h-9 rounded-lg text-xs font-semibold tracking-wide;
     @apply border border-matrix-cyan/60 text-matrix-cyan bg-matrix-cyan/[0.08];
     @apply transition-all duration-200;
     @apply hover:bg-matrix-cyan hover:text-matrix-black hover:border-matrix-cyan;
@@ -114,7 +114,7 @@ h1, h2, h3, h4, h5, h6 {
      used side-by-side with it in SaleCreateModal's footer ("إلغاء" /
      "تأكيد البيع"). Same h-9 sizing so both buttons align exactly. ── */
   .matrix-btn-ghost {
-    @apply inline-flex items-center gap-2 px-4 h-9 rounded-lg text-xs font-semibold tracking-wide;
+    @apply inline-flex items-center gap-2 px-4 h-11 md:h-9 rounded-lg text-xs font-semibold tracking-wide;
     @apply border border-matrix-border text-matrix-subtle bg-transparent;
     @apply transition-all duration-200;
     @apply hover:border-matrix-cyan/40 hover:text-matrix-cyan hover:bg-matrix-cyan/[0.04];
@@ -169,7 +169,7 @@ h1, h2, h3, h4, h5, h6 {
      default; color only appears on hover/focus, per the "zero visual
      noise" brief — action buttons shouldn't compete with data. ── */
   .icon-btn {
-    @apply inline-flex items-center justify-center w-8 h-8 rounded-lg;
+    @apply inline-flex items-center justify-center w-11 h-11 md:w-8 md:h-8 rounded-lg;
     @apply border border-matrix-border text-matrix-subtle;
     @apply transition-all duration-200;
     @apply hover:border-matrix-cyan/40 hover:text-matrix-cyan hover:bg-matrix-cyan/[0.06];

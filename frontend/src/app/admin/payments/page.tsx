@@ -124,7 +124,7 @@ function PaymentModal({
             </div>
 
             {/* Amount + plan */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="p-3 rounded-lg border border-matrix-border/50">
                 <p className="text-[10px] font-mono text-matrix-subtle mb-1">المبلغ</p>
                 <p className="text-sm font-mono font-bold text-matrix-green">
@@ -289,7 +289,7 @@ export default function AdminPaymentsPage() {
         {/* ── Table ── */}
         <div className="matrix-panel overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-right">
+            <table className="min-w-[560px] w-full text-right">
               <thead>
                 <tr className="border-b border-matrix-border/70">
                   {['المعرض', 'الباقة', 'المبلغ', 'التاريخ', 'الحالة', 'المرجع', ''].map((h) => (

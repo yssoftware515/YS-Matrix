@@ -85,3 +85,71 @@
 2. FE uses react-query with 60s staleTime and no optimistic updates on money (only `useSaveMode` optimistic-ish for profile name) — backend remains authoritative; good.
 3. The only "business rule enforced solely in frontend" is cosmetic (disable cancel button? verified — cancel respects paid installment: FE blocks cancel attempt if any installment paid? It relies on backend 409/423; FE shows toast from backend. No enforcement gap found.) — the backend remains the gatekeeper everywhere (FACT).
 4. **Recommendation:** delete or wire the duplicate `/` page; wire or remove GlobalSearch; align notification generator (decide `PAYMENT_RECEIVED` semantics); add an OpenAPI-derived type generation step once CI exists (future).
+
+## 7. Responsiveness Audit (TASK-002)
+
+### 7.1 Sidebar — Mobile Drawer (ALREADY IMPLEMENTED)
+
+The Sidebar already transforms into a slide-in drawer on screens < 768px:
+
+- **State:** `mobileOpen` (separate from desktop `collapsed`) in `DashboardLayout.tsx:24`
+- **Trigger:** Navbar hamburger button (`icon-btn md:hidden`) calls `onMenuClick`
+- **Drawer:** `fixed inset-y-0 right-0 z-50` with `translate-x-0` / `translate-x-full` toggle
+- **Desktop:** `md:relative md:z-auto md:translate-x-0` (docked panel)
+- **Backdrop:** `AnimatePresence` overlay with `bg-black/60 backdrop-blur-sm`, tap-to-close
+- **Auto-close:** `useEffect` on `pathname` closes drawer on navigation
+
+### 7.2 Table Horizontal Scrolling
+
+**Fixed (5 tables):** Added `min-w-[560px]` to force column expansion on narrow screens:
+
+| File | Line | Before | After |
+|------|------|--------|-------|
+| `admin/payments/page.tsx` | 292 | `w-full text-right` | `min-w-[560px] w-full text-right` |
+| `dashboard/billing/page.tsx` | 1149 | `w-full text-right` | `min-w-[560px] w-full text-right` |
+| `dashboard/sales/page.tsx` | 418 | `w-full text-right` | `min-w-[560px] w-full text-right` |
+| `dashboard/subscriptions/page.tsx` | 332 | `w-full text-right` | `min-w-[560px] w-full text-right` |
+| `dashboard/invoices/[id]/page.tsx` | 112 | `matrix-table w-full text-sm` | `matrix-table min-w-[560px] w-full text-sm` |
+
+All tables already had `overflow-x-auto` wrappers — the missing `min-w` was preventing the scroll from triggering.
+
+### 7.3 Responsive Form Grids
+
+**Fixed (11 grids):** Changed `grid-cols-2` / `grid-cols-3` to mobile-first patterns:
+
+| File | Line | Before | After |
+|------|------|--------|-------|
+| `dashboard/showrooms/page.tsx` | 147 | `grid grid-cols-2 gap-3` | `grid grid-cols-1 md:grid-cols-2 gap-3` |
+| `dashboard/users/page.tsx` | 201 | `grid grid-cols-3 gap-3` | `grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3` |
+| `dashboard/expenses/page.tsx` | 309 | `grid grid-cols-2 gap-4` | `grid grid-cols-1 md:grid-cols-2 gap-4` |
+| `admin/payments/page.tsx` | 127 | `grid grid-cols-2 gap-3` | `grid grid-cols-1 md:grid-cols-2 gap-3` |
+| `SaleCreateModal.tsx` | 450 | `grid grid-cols-2 gap-2 mt-2` | `grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2` |
+| `SaleCreateModal.tsx` | 486 | `grid grid-cols-2 gap-2` | `grid grid-cols-1 sm:grid-cols-2 gap-2` |
+| `SaleCreateModal.tsx` | 522 | `grid grid-cols-2 gap-3` | `grid grid-cols-1 sm:grid-cols-2 gap-3` |
+| `SaleDetailDrawer.tsx` | 328 | `grid grid-cols-2 gap-2` | `grid grid-cols-1 sm:grid-cols-2 gap-2` |
+| `inventory/page.tsx` | 447 | `grid grid-cols-2 gap-4` | `grid grid-cols-1 md:grid-cols-2 gap-4` |
+| `invoices/[id]/page.tsx` | 90 | `grid grid-cols-2 gap-px bg-matrix-border` | `grid grid-cols-1 md:grid-cols-2 gap-px bg-matrix-border` |
+| `suppliers/page.tsx` | 632 | `grid grid-cols-2 gap-3 text-sm` | `grid grid-cols-1 md:grid-cols-2 gap-3 text-sm` |
+
+### 7.4 Touch Targets (44×44px minimum on mobile)
+
+**Fixed (3 component classes):** Increased height on mobile, preserved desktop sizing:
+
+| Class | Before | After |
+|-------|--------|-------|
+| `.icon-btn` | `w-8 h-8` (32px) | `w-11 h-11 md:w-8 md:h-8` (44px mobile, 32px desktop) |
+| `.matrix-btn` | `h-9` (36px) | `h-11 md:h-9` (44px mobile, 36px desktop) |
+| `.matrix-btn-ghost` | `h-9` (36px) | `h-11 md:h-9` (44px mobile, 36px desktop) |
+
+### 7.5 Breakpoints Applied
+
+| Breakpoint | Tailwind | Viewport | Usage |
+|------------|----------|----------|-------|
+| Mobile | (base) | < 640px | Single column grids, 44px touch targets, full-width tables |
+| Small | `sm:` | ≥ 640px | 2-column grids in modals/drawers |
+| Medium | `md:` | ≥ 768px | Sidebar docks, 2-column grids, reduced touch targets |
+| Large | `lg:` | ≥ 1024px | 3-column grids |
+
+### 7.6 Build Status
+
+`npm run build` — **PASS** (0 TypeScript errors, 35 routes compiled)

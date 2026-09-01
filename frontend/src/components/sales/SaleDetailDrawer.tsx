@@ -325,7 +325,7 @@ export function SaleDetailDrawer({
           {/* ── Financials ── */}
           <section>
             <p className="section-label mb-2">التفاصيل المالية</p>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {financialRows.map((row) => (
                 <div key={row.label} className="p-3 rounded-lg bg-matrix-dark border border-matrix-border/50">
                   <p className="text-[10px] font-mono text-matrix-subtle">{row.label}</p>

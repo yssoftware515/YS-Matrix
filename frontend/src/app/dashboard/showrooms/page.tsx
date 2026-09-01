@@ -144,7 +144,7 @@ export default function ShowroomsPage() {
               <Loader2 className="w-6 h-6 text-matrix-cyan animate-spin" />
             </div>
           ) : statsData ? (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {[
                 ['المستخدمون',      statsData.stats.users,                         'text-matrix-cyan'],
                 ['المخزون',         statsData.stats.inventory,                     'text-matrix-amber'],

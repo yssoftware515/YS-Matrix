@@ -306,7 +306,7 @@ export default function ExpensesPage() {
         </div>
 
         {/* ── KPI Cards ─────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <KpiCard title="إجمالي المصاريف" value={formatCurrency(total)}            icon={<Wallet className="w-5 h-5"/>} color="red"   delay={0}    />
           <KpiCard title="عدد المصاريف"    value={data?.pagination?.total || 0}     icon={<Wallet className="w-5 h-5"/>} color="amber" delay={0.08} />
         </div>

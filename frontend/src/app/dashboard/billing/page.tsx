@@ -1146,7 +1146,7 @@ export default function BillingPage() {
             <p className="section-title mb-0">سجل المدفوعات</p>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-right">
+            <table className="min-w-[560px] w-full text-right">
               <thead>
                 <tr className="border-b border-matrix-border/70">
                   {['التاريخ', 'الباقة', 'المبلغ', 'طريقة الدفع', 'الحالة', 'السبب', 'المرجع'].map((h) => (

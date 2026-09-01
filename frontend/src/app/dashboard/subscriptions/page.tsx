@@ -329,7 +329,7 @@ export default function SubscriptionsPage() {
         {/* ── Table ── */}
         <div className="matrix-panel overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-right">
+            <table className="min-w-[560px] w-full text-right">
               <thead>
                 <tr className="border-b border-matrix-border/70">
                   {['المعرض','الخطة','الحالة','بدأ','ينتهي',''].map((h) => (
