@@ -1,0 +1,885 @@
+// ============================================================
+// YS-MATRIX ERP - PostgreSQL Database Schema
+// Author: Yahya Al-Sulami 🦅
+// Multi-Tenant SaaS | Production Ready
+// v1.1 — Added: is_onboarded, soft-delete, immutable invoice snapshots
+// v1.2 — Stage 3: Notifications + Subscriptions
+// v1.3 — Phase 4 (Production Hardening): Plans, Payments, subscription
+//        request lifecycle (PENDING_PAYMENT), plan-limit snapshots,
+//        expiry-notification idempotency, account lifecycle statuses.
+// ============================================================
+
+generator client {
+  provider      = "prisma-client-js"
+   binaryTargets = ["native", "rhel-openssl-1.0.x", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum UserRole {
+  SUPER_ADMIN
+  OWNER
+  STAFF
+}
+
+enum VehicleType {
+  MOTORCYCLE
+  CAR
+  TUKTUK
+  TRICYCLE
+  SPARE_PART
+  OTHER
+}
+
+enum SaleType {
+  CASH
+  INSTALLMENT
+}
+
+enum SaleStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  OVERDUE
+}
+
+enum StockStatus {
+  IN_STOCK
+  RESERVED
+  SOLD
+  RETURNED
+}
+
+enum PaymentType {
+  CASH
+  BANK_TRANSFER
+  CHEQUE
+  OTHER
+}
+
+// ── Stage 3 Enums ───────────────────────────────────────────
+
+enum NotificationType {
+  INSTALLMENT_OVERDUE
+  INSTALLMENT_DUE_SOON
+  LICENSE_EXPIRING
+  LOW_STOCK
+  SALE_CREATED
+  SALE_CANCELLED
+  PAYMENT_RECEIVED
+  SYSTEM
+  // ── Phase 4 (Production Hardening) ─────────────────────────
+  SUBSCRIPTION_EXPIRING
+  SUBSCRIPTION_EXPIRED
+  SUBSCRIPTION_ACTIVATED
+  PAYMENT_SUBMITTED
+  PAYMENT_APPROVED
+  PAYMENT_REJECTED
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PENDING_PAYMENT // Phase 4 — subscription purchase/request awaiting payment approval
+  EXPIRED
+  CANCELLED
+  TRIAL
+}
+
+// ── Phase 4 Enums (Payment Boundary) ─────────────────────────
+// Manual payment is the initial provider; the status lifecycle is
+// shared by future gateway payments (webhook-confirmed → PAID).
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  EXPIRED
+  REFUNDED
+  REJECTED
+}
+
+// ============================================================
+// SHOWROOMS (TENANTS)
+// ============================================================
+
+model Showroom {
+  id              String    @id @default(cuid())
+  name            String
+  slug            String    @unique
+  logo_url        String?
+  address         String?
+  phone           String?
+  email           String?
+  is_active       Boolean   @default(true)
+  license_expiry  DateTime
+
+  // ── Scheduled Notifications (Matrix Audit #12 follow-up) ───
+  // Tracks the smallest "days-left" warning threshold already sent
+  // (e.g. 30, then 7, then 1) for the CURRENT license_expiry value.
+  // Using "smallest threshold already sent" instead of a boolean
+  // means a missed cron run (server downtime) doesn't skip a
+  // threshold forever — the next run catches up correctly. MUST be
+  // reset to null whenever license_expiry is renewed/extended
+  // (handled in showroom.controller.js's updateShowroom), otherwise
+  // a stale value from a PAST expiry cycle would silently suppress
+  // every future warning.
+  license_warning_sent_days Int?
+  // ─────────────────────────────────────────────────────────
+
+  // ── NEW v1.1 ──────────────────────────────────────────────
+  is_onboarded    Boolean   @default(false)
+  // ─────────────────────────────────────────────────────────
+
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+
+  // Relations
+  users           User[]
+  inventory       Inventory[]
+  suppliers       Supplier[]
+  customers       Customer[]
+  sales           Sale[]
+  expenses        Expense[]
+  audit_logs      AuditLog[]
+
+  // ── Stage 3 Relations ────────────────────────────────────
+  notifications   Notification[]
+  subscriptions   Subscription[]
+  payments        Payment[]
+
+  @@map("showrooms")
+}
+
+// ============================================================
+// USERS
+// ============================================================
+
+model User {
+  id              String    @id @default(cuid())
+  showroom_id     String
+  name            String
+  email           String    @unique
+  password_hash   String
+  role            UserRole  @default(STAFF)
+  is_active       Boolean   @default(true)
+  avatar_url      String?
+  last_login      DateTime?
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+
+  // ── Phase C.4 (N-1): login lockout ─────────────────────────
+  // failed_login_attempts counts consecutive wrong-password attempts
+  // since the last successful login; locked_until is non-null while
+  // the account is temporarily locked. Both are reset on successful
+  // login and on password change/reset. Implemented in
+  // auth.controller.js login(); threshold/window in
+  // config/security.js → login.*.
+  failed_login_attempts Int       @default(0)
+  locked_until          DateTime?
+
+  // ── Phase 2 (Delegated Platform Administration) ─────────────
+  // Nullable profile override: when set, effectiveAuthorization
+  // resolves THIS profile row instead of the role-named profile.
+  // NULL preserves the legacy role-based behavior exactly.
+  profile_id      String?
+
+  // Relations
+  showroom              Showroom       @relation(fields: [showroom_id], references: [id], onDelete: Cascade)
+  profile               Profile?       @relation(fields: [profile_id], references: [id], onDelete: SetNull)
+  sales                 Sale[]
+  audit_logs            AuditLog[]
+  refresh_tokens        RefreshToken[]
+  reviewed_payments     Payment[]      @relation("PaymentReviewer")
+
+  // ── Stage 3 Relations ────────────────────────────────────
+  notifications         Notification[]
+  renewed_subscriptions Subscription[] @relation("SubscriptionRenewer")
+
+  // ── Password Reset (Matrix Audit — Phase 1) ──────────────
+  password_reset_tokens PasswordResetToken[]
+
+  @@index([showroom_id])
+  @@index([email])
+  @@index([profile_id])
+  @@map("users")
+}
+
+// ============================================================
+// REFRESH TOKENS (JWT)
+// ============================================================
+
+model RefreshToken {
+  id          String   @id @default(cuid())
+  user_id     String
+  token       String   @unique
+  expires_at  DateTime
+  created_at  DateTime @default(now())
+
+  user        User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@map("refresh_tokens")
+}
+
+// ============================================================
+// PASSWORD RESET TOKENS (Matrix Audit — Phase 1)
+// ============================================================
+// token_hash stores SHA-256(rawToken) — NEVER the raw token itself.
+// The raw token only ever exists in the emailed link; a database leak
+// alone is not enough to take over an account with a pending reset,
+// since the hash can't be reversed back into the original token.
+// Comparison at verification time is hash-to-hash (createHash again
+// on the incoming token, then findUnique by token_hash) — never a
+// stored-plaintext comparison.
+model PasswordResetToken {
+  id         String    @id @default(cuid())
+  user_id    String
+  token_hash String    @unique
+  expires_at DateTime
+  used_at    DateTime?
+  created_at DateTime  @default(now())
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@map("password_reset_tokens")
+}
+
+// ============================================================
+// INVENTORY
+// ============================================================
+
+model Inventory {
+  id              String      @id @default(cuid())
+  showroom_id     String
+
+  // Product Identity
+  vehicle_type    VehicleType
+  brand           String
+  model           String
+  year            Int?
+  color           String?
+  engine_cc       Int?
+
+  // Tracking Numbers
+  chassis_number  String?
+  engine_number   String?
+
+  // Matrix Audit (Phase 2): the frontend's inventory form has had a
+  // dedicated, actively-used field for this since before this audit
+  // (`part_number` — "رقم القطعة / الباركود", required: false, sent on
+  // both create AND edit) — confirmed directly against
+  // inventory/page.tsx, not assumed. There was simply no column here
+  // to receive it, so every value entered silently vanished. Added
+  // the column rather than removing the frontend field, since it's
+  // clearly an intentional, functioning feature (spare-parts barcode
+  // tracking), not leftover/dead UI.
+  part_number     String?
+
+  // Pricing
+  cost_price      Decimal     @db.Decimal(12, 2)
+  selling_price   Decimal     @db.Decimal(12, 2)
+  min_price       Decimal?    @db.Decimal(12, 2)
+
+  // Stock
+  quantity        Int         @default(1)
+  status          StockStatus @default(IN_STOCK)
+
+  // Meta
+  description     String?
+  image_urls      String[]    @default([])
+  supplier_id     String?
+
+  // Soft delete (Matrix Audit — F-25 follow-up session, 2026-07-03):
+  // previously inventory used HARD delete (`prisma.inventory.delete()`),
+  // which the application layer had to manually block for any item
+  // with sale history (`SaleItem.inventory` has no onDelete rule →
+  // defaults to RESTRICT — a hard delete would throw a raw FK
+  // violation). That made archiving a sold/discontinued item
+  // permanently impossible. Now consistent with Customer/Supplier's
+  // existing is_active pattern — delete = archive, never a real
+  // DELETE statement, so historical SaleItem references are never at risk.
+  is_active       Boolean     @default(true)
+
+  created_at      DateTime    @default(now())
+  updated_at      DateTime    @updatedAt
+
+  // Relations
+  showroom        Showroom    @relation(fields: [showroom_id], references: [id], onDelete: Cascade)
+  supplier        Supplier?   @relation(fields: [supplier_id], references: [id])
+  sale_items      SaleItem[]
+
+  @@index([showroom_id])
+  @@index([showroom_id, vehicle_type])
+  @@index([showroom_id, status])
+  // NOTE: a PARTIAL index (WHERE is_active = true) is added via raw SQL
+  // in the migration file, not expressible in Prisma's schema DSL —
+  // see prisma/migrations/20260704000000_inventory_soft_delete/migration.sql.
+  // This @@index is the plain, full-table fallback Prisma manages
+  // automatically; the partial index is the one actually used by the
+  // query planner for the common "active items in this showroom" case.
+  @@index([showroom_id, is_active])
+  @@map("inventory")
+}
+
+// ============================================================
+// SUPPLIERS
+// ============================================================
+
+model Supplier {
+  id              String    @id @default(cuid())
+  showroom_id     String
+  name            String
+  phone           String?
+  email           String?
+  address         String?
+  notes           String?
+
+  // ── NEW v1.1 ──────────────────────────────────────────────
+  is_active       Boolean   @default(true)
+  // ─────────────────────────────────────────────────────────
+
+  // Financial Summary (calculated)
+  total_due       Decimal   @default(0) @db.Decimal(12, 2)
+  total_paid      Decimal   @default(0) @db.Decimal(12, 2)
+
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+
+  // Relations
+  showroom        Showroom          @relation(fields: [showroom_id], references: [id], onDelete: Cascade)
+  inventory       Inventory[]
+  payments        SupplierPayment[]
+
+  @@index([showroom_id])
+  @@index([showroom_id, is_active])
+  @@map("suppliers")
+}
+
+model SupplierPayment {
+  id            String      @id @default(cuid())
+  supplier_id   String
+  amount        Decimal     @db.Decimal(12, 2)
+  payment_type  PaymentType @default(CASH)
+  reference     String?
+  note          String?
+  paid_at       DateTime    @default(now())
+  created_at    DateTime    @default(now())
+
+  supplier      Supplier    @relation(fields: [supplier_id], references: [id], onDelete: Cascade)
+
+  @@index([supplier_id])
+  @@map("supplier_payments")
+}
+
+// ============================================================
+// CUSTOMERS
+// ============================================================
+
+model Customer {
+  id              String    @id @default(cuid())
+  showroom_id     String
+  name            String
+  phone           String?
+  national_id     String?
+  address         String?
+  notes           String?
+
+  // ── NEW v1.1 ──────────────────────────────────────────────
+  is_active       Boolean   @default(true)
+  // ─────────────────────────────────────────────────────────
+
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+
+  // Relations
+  showroom        Showroom  @relation(fields: [showroom_id], references: [id], onDelete: Cascade)
+  sales           Sale[]
+
+  @@index([showroom_id])
+  @@index([showroom_id, is_active])
+  @@map("customers")
+}
+
+// ============================================================
+// SALES
+// ============================================================
+
+model Sale {
+  id              String     @id @default(cuid())
+  showroom_id     String
+  customer_id     String?
+  user_id         String
+
+  invoice_number  String
+  sale_type       SaleType   @default(CASH)
+  status          SaleStatus @default(ACTIVE)
+
+  // Financials
+  subtotal        Decimal    @db.Decimal(12, 2)
+  discount        Decimal    @default(0) @db.Decimal(12, 2)
+  total           Decimal    @db.Decimal(12, 2)
+  profit          Decimal    @db.Decimal(12, 2)
+
+  // For installments
+  down_payment       Decimal? @db.Decimal(12, 2)
+  monthly_amount     Decimal? @db.Decimal(12, 2)
+  installment_months Int?
+  next_due_date      DateTime?
+
+  notes           String?
+  sold_at         DateTime   @default(now())
+  created_at      DateTime   @default(now())
+  updated_at      DateTime   @updatedAt
+
+  // Relations
+  showroom        Showroom      @relation(fields: [showroom_id], references: [id], onDelete: Cascade)
+  customer        Customer?     @relation(fields: [customer_id], references: [id])
+  user            User          @relation(fields: [user_id], references: [id])
+  items           SaleItem[]
+  installments    Installment[]
+
+  @@unique([showroom_id, invoice_number])
+  @@index([showroom_id])
+  @@index([showroom_id, sold_at])
+  @@index([showroom_id, status])
+  @@map("sales")
+}
+
+// ============================================================
+// SALE ITEMS
+// ============================================================
+
+model SaleItem {
+  id              String   @id @default(cuid())
+  sale_id         String
+  inventory_id    String
+
+  quantity        Int      @default(1)
+  unit_price      Decimal  @db.Decimal(12, 2)
+  cost_price      Decimal  @db.Decimal(12, 2)
+  total_price     Decimal  @db.Decimal(12, 2)
+  profit          Decimal  @db.Decimal(12, 2)
+
+  // ── NEW v1.1 — Immutable Invoice Snapshot ─────────────────
+  chassis_number  String?
+  engine_number   String?
+  color           String?
+  vehicle_model   String?
+  // ─────────────────────────────────────────────────────────
+
+  sale            Sale      @relation(fields: [sale_id], references: [id], onDelete: Cascade)
+  inventory       Inventory @relation(fields: [inventory_id], references: [id])
+
+  @@index([sale_id])
+  @@map("sale_items")
+}
+
+// ============================================================
+// INSTALLMENTS
+// ============================================================
+
+model Installment {
+  id          String   @id @default(cuid())
+  sale_id     String
+  amount      Decimal  @db.Decimal(12, 2)
+  due_date    DateTime
+  paid_at     DateTime?
+  is_paid     Boolean  @default(false)
+  note        String?
+  created_at  DateTime @default(now())
+
+  // ── Scheduled Notifications (Matrix Audit #12 follow-up) ───
+  // Set the first time runOverdueInstallmentScan() (notification.
+  // service.js) fires notifyInstallmentOverdue for this row. Without
+  // this, every daily cron run would re-notify the SAME overdue
+  // installment again and again for as long as it stays unpaid —
+  // this makes it single-fire. Ongoing visibility for already-flagged
+  // overdue installments stays in the existing getOverdueInstallments
+  // dashboard endpoint — this field only gates the push notification.
+  overdue_notified_at DateTime?
+  // ─────────────────────────────────────────────────────────
+
+  sale        Sale     @relation(fields: [sale_id], references: [id], onDelete: Cascade)
+
+  @@index([sale_id])
+  @@index([due_date, is_paid])
+  @@map("installments")
+}
+
+// ============================================================
+// EXPENSES
+// ============================================================
+
+model Expense {
+  id            String   @id @default(cuid())
+  showroom_id   String
+  category      String
+  description   String?
+  amount        Decimal  @db.Decimal(12, 2)
+  expense_date  DateTime @default(now())
+  created_at    DateTime @default(now())
+
+  showroom      Showroom @relation(fields: [showroom_id], references: [id], onDelete: Cascade)
+
+  @@index([showroom_id])
+  @@index([showroom_id, expense_date])
+  @@map("expenses")
+}
+
+// ============================================================
+// AUDIT LOG (Security + History)
+// ============================================================
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  showroom_id   String
+  user_id       String?
+  action        String
+  entity        String
+  entity_id     String?
+  old_data      Json?
+  new_data      Json?
+  ip_address    String?
+  created_at    DateTime @default(now())
+
+  showroom      Showroom @relation(fields: [showroom_id], references: [id], onDelete: Cascade)
+  user          User?    @relation(fields: [user_id], references: [id])
+
+  @@index([showroom_id])
+  @@index([showroom_id, entity])
+  @@index([created_at])
+  // Matrix Audit (Phase 2): activity.service.js's listActivityLogs
+  // filters by showroom_id AND sorts by created_at DESC in the same
+  // query. The two single-column indexes above each cover only half
+  // of that — Postgres scans all showroom_id matches then sorts in
+  // memory. This composite index lets it do both in one index scan,
+  // with no sort step, as audit logs grow into the thousands.
+  @@index([showroom_id, created_at])
+  @@map("audit_logs")
+}
+
+// ============================================================
+// NOTIFICATIONS — Stage 3
+// ============================================================
+
+model Notification {
+  id          String           @id @default(cuid())
+  showroom_id String
+  user_id     String?
+  type        NotificationType
+  title       String
+  body        String
+  data        Json?
+  is_read     Boolean          @default(false)
+  read_at     DateTime?
+  created_at  DateTime         @default(now())
+
+  showroom    Showroom         @relation(fields: [showroom_id], references: [id], onDelete: Cascade)
+  user        User?            @relation(fields: [user_id],     references: [id], onDelete: SetNull)
+
+  @@index([showroom_id])
+  @@index([showroom_id, is_read])
+  @@index([created_at])
+  @@map("notifications")
+}
+
+// ============================================================
+// SCHEDULED JOB RUNS — Multi-instance-safe cron coordination
+// (Matrix Audit #12 follow-up)
+// ============================================================
+// One row is claimed per (job_name, run_key) via a plain unique-
+// constraint INSERT, BEFORE the job's actual work runs — see
+// jobs/scheduledNotifications.job.js's claimRun(). If multiple Node
+// processes/instances all fire the same cron schedule simultaneously
+// (PM2 cluster mode, multiple containers, future horizontal scaling),
+// only the first INSERT succeeds; every other instance's INSERT hits
+// the unique constraint, gets Prisma error P2002, and skips —
+// guaranteeing the job's work runs exactly once per run_key, with NO
+// new infrastructure (no Redis, no external lock service) beyond the
+// Postgres database YS-MATRIX already depends on.
+model ScheduledJobRun {
+  id         String   @id @default(cuid())
+  job_name   String
+  run_key    String   // e.g. "2026-06-27" for a once-daily job
+  started_at DateTime @default(now())
+
+  @@unique([job_name, run_key])
+  @@map("scheduled_job_runs")
+}
+
+// ============================================================
+// AUTHORIZATION — Phase 1 Foundation
+// ============================================================
+// Phase 1 (Authorization Foundation) — permission-based authorization
+// layer. Platform-level data (NOT tenant-scoped — see GLOBAL_MODELS
+// in config/database.js).
+//
+// Design principles (approved Phase 1 model):
+//   • Permission keys are explicit "resource:action" records — NO
+//     wildcard semantics anywhere in the authorization system.
+//   • Scopes are separate from permission names. Only SHOWROOM and
+//     SELF are formalized in this phase; GLOBAL exists as a future
+//     platform-administration scope (documented, not enforced).
+//   • Profiles map 1:1 to UserRole enum values (OWNER / STAFF).
+//     SUPER_ADMIN is deliberately NOT a Profile record — it is a
+//     protected system authority handled by the resolver bypass,
+//     never assignable through profile data.
+//   • A user keeps exactly one effective profile (users.role) — no
+//     user_permissions overrides were needed for parity; deferred.
+//   • Deletion safety: ProfilePermission rows cascade with either
+//     parent; profiles/permissions themselves are never deleted by
+//     the application in this phase.
+
+model Permission {
+  id          String   @id @default(cuid())
+  key         String   @unique // e.g. "customer:create" — resource:action
+  resource    String
+  action      String
+  description String?
+  created_at  DateTime @default(now())
+
+  profile_assignments ProfilePermission[]
+
+  @@index([resource])
+  @@map("permissions")
+}
+
+model Profile {
+  id          String   @id @default(cuid())
+  name        String   @unique // must equal a UserRole value (OWNER / STAFF)
+  description String?
+  scope       String   @default("SHOWROOM") // SHOWROOM in this phase
+  is_system   Boolean  @default(false)      // parity profiles are system-managed
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  permissions ProfilePermission[]
+  users       User[]
+
+  @@map("profiles")
+}
+
+model ProfilePermission {
+  id            String     @id @default(cuid())
+  profile_id    String
+  permission_id String
+  scope         String     @default("SHOWROOM") // SHOWROOM | SELF in this phase
+  created_at    DateTime   @default(now())
+
+  profile    Profile    @relation(fields: [profile_id],    references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permission_id], references: [id], onDelete: Cascade)
+
+  @@unique([profile_id, permission_id, scope])
+  @@map("profile_permissions")
+}
+
+// ============================================================
+// SUBSCRIPTIONS — Stage 3 + Phase 4 (Lifecycle)
+// ============================================================
+// Phase 4 — account/subscription lifecycle separation:
+//   • `status` is the SUBSCRIPTION lifecycle (PENDING_PAYMENT →
+//     ACTIVE → EXPIRED/CANCELLED). Account status is derived
+//     (showrooms.is_active = hard operational gate; absence of any
+//     subscription = PENDING_SUBSCRIPTION). License status is
+//     derived from showrooms.license_expiry (unchanged middleware).
+//   • Pending (unpaid) subscription rows carry null started_at/
+//     expires_at; they are NOT counted as active/expired anywhere.
+//   • plan_id + price_amount/duration_months/users_limit are a
+//     SNAPSHOT of the selected plan at purchase/request time —
+//     subscription limits never change under an approved period if
+//     a plan is later repriced/edited.
+//   • expiry_notified_days implements notification idempotency
+//     (mirrors showrooms.license_warning_sent_days): the smallest
+//     7/3/1/0-day threshold already notified for the CURRENT period.
+//     Reset to null on every activation/renewal.
+model Subscription {
+  id             String             @id @default(cuid())
+  showroom_id    String
+  plan_id        String?
+  plan_name      String             @default("STANDARD")
+  status         SubscriptionStatus @default(ACTIVE)
+  started_at     DateTime?
+  expires_at     DateTime?
+  renewed_by     String?
+  amount_paid    Decimal?           @db.Decimal(10, 2)
+  payment_method String?
+  notes          String?
+  approved_at    DateTime?
+
+  // ── Phase 4: plan-limit snapshot ───────────────────────────
+  price_amount   Decimal?           @db.Decimal(10, 2)
+  duration_months Int?
+  users_limit    Int?
+  // ─────────────────────────────────────────────────────────
+
+  // ── Phase C.7: billing-period snapshot (MONTHLY | SIX_MONTHS |
+  //    YEARLY — null for legacy claims resolved from plan rows) ──
+  billing_period String?
+  // ─────────────────────────────────────────────────────────
+
+  // ── Phase 4: expiry-notification idempotency ───────────────
+  expiry_notified_days Int?
+  // ─────────────────────────────────────────────────────────
+
+  created_at     DateTime           @default(now())
+
+  showroom        Showroom @relation(fields: [showroom_id], references: [id], onDelete: Cascade)
+  plan            Plan?     @relation(fields: [plan_id], references: [id], onDelete: SetNull)
+  renewed_by_user User?    @relation("SubscriptionRenewer", fields: [renewed_by], references: [id], onDelete: SetNull)
+  payments        Payment[]
+
+  @@index([showroom_id])
+  @@index([showroom_id, status])
+  @@index([status])
+  @@index([expires_at])
+  @@index([plan_id])
+  // Phase A (P1-2): partial unique index created in raw SQL
+  // (migration 20260813120000_phase_a_pending_claim_unique) — not
+  // expressible in Prisma schema syntax:
+  //   CREATE UNIQUE INDEX subscriptions_one_pending_per_showroom
+  //   ON subscriptions (showroom_id) WHERE status = 'PENDING_PAYMENT';
+  // Guarantees at most ONE PENDING_PAYMENT claim per showroom at the
+  // database level — the application pre-check is a friendly
+  // fast-path; this index is the authoritative backstop.
+  @@map("subscriptions")
+}
+
+// ============================================================
+// PLANS — Phase 4 (minimum clean plan abstraction)
+// ============================================================
+// Single source for sellable plans. Subscriptions snapshot the
+// values below (see Subscription), so plan edits never mutate an
+// already-sold period. `features` is a JSON display map for the
+// customer-facing plan cards (feature bullet lists). No quota
+// enforcement exists beyond users_limit (applied at user:create);
+// other limit dimensions are deliberately NOT invented in this
+// phase — the model leaves room via metadata only.
+model Plan {
+  id              String    @id // stable slug-like code, e.g. "standard"
+  name            String
+  code            String    @unique
+  price_amount    Decimal   @db.Decimal(10, 2)
+  currency        String    @default("EGP")
+  duration_months Int
+  users_limit     Int
+  features        Json?
+  is_active       Boolean   @default(true)
+  sort_order      Int       @default(0)
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+
+  subscriptions   Subscription[]
+
+  @@map("plans")
+}
+
+// ============================================================
+// MARKET PRICING — Phase C.7 (approved commercial model, CORRECTED)
+// ============================================================
+// Pricing is DATA, keyed by (market, currency, billing_period) —
+// deliberately NOT keyed by plan: plans differentiate tiers
+// (users_limit / entitlements), billing periods differentiate
+// price. Pricing correction (2026-08-15): the FOUR approved markets
+// (EGYPT / SAUDI_ARABIA / UAE / GLOBAL) store their APPROVED
+// customer-facing amounts directly:
+//
+//   base_amount     — monthly base price of the offering in the
+//                     market's currency (e.g. 350.00 EGP)
+//   discount_percent — displayed commercial policy (0 / 7 / 15)
+//   final_amount    — THE AUTHORITATIVE approved customer-facing
+//                     amount for the period. Approved prices are
+//                     deliberate rounded commercial price points and
+//                     are NEVER recomputed from base × (1 − discount).
+//
+// effective_monthly / savings are DISPLAY facts derived by
+// config/commercial.js (derivePeriodDisplay) from the stored
+// final_amount — never stored as independent facts that could drift,
+// and never used to redefine the price.
+//
+// Only the four approved markets may carry active rows. QAR/KWD/
+// BHD/OMR stay registered as currency codes but receive NO active
+// pricing until the business owner explicitly approves it.
+//
+// This table is GLOBAL configuration — deliberately NOT tenant
+// scoped (all dealerships in a market see the same catalog).
+model MarketPricing {
+  id              String   @id @default(cuid())
+  market          String   // e.g. 'EGYPT' (SUPPORTED_MARKETS)
+  currency        String   // e.g. 'EGP' (SUPPORTED_CURRENCIES)
+  billing_period  String   // MONTHLY | SIX_MONTHS | YEARLY (config/commercial.js)
+  base_amount     Decimal  @db.Decimal(10, 2)
+  discount_percent Decimal @db.Decimal(5, 2) @default(0)
+  // Authoritative approved final amount (correction 2026-08-15).
+  // NULL = no approved price for this row (never served).
+  final_amount    Decimal? @db.Decimal(10, 2)
+  is_active       Boolean  @default(true)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  @@unique([market, currency, billing_period])
+  @@index([market, currency, is_active])
+  @@map("market_pricing")
+}
+
+// ============================================================
+// PAYMENTS — Phase 4 (payment boundary)
+// ============================================================
+// Initial provider: MANUAL (admin-reviewed transfer proof).
+// Future automatic gateways plug in through the same table/status
+// lifecycle: a verified webhook marks a payment PAID and calls the
+// SAME canonical activation path (subscription.service.js
+// activateSubscription) as manual approval — the subscription layer
+// never knows (or cares) where the PAID transition came from.
+//   * amount/currency are derived SERVER-SIDE from the selected
+//     plan snapshot at request time — never trusted from the client.
+//   * proof_data holds the base64 image proof (png/jpeg/webp, size
+//     capped) for the initial no-object-storage deployment; served
+//     ONLY to the owning showroom and GLOBAL admins, never executed.
+//   * metadata reserves the provider-native fields a gateway will
+//     need (gateway_tx_id, raw_webhook, ...) later.
+model Payment {
+  id              String         @id @default(cuid())
+  showroom_id     String
+  subscription_id String?
+
+  // Plan snapshot at request time (same values as the subscription)
+  plan_id         String?
+  plan_name       String
+  plan_code       String
+  amount          Decimal        @db.Decimal(10, 2)
+  currency        String         @default("EGP")
+
+  // Provider boundary — method/provider are free text so future
+  // gateways (e.g. "STRIPE", "PAYPAL", "AAMAR") need no enum shim.
+  method          String         @default("MANUAL")   // how the customer paid (transfer/bank/...)
+  provider        String         @default("MANUAL")   // who verified/processed: MANUAL | <gateway>
+
+  status          PaymentStatus  @default(PENDING)
+  reference       String?        // customer-supplied transaction/reference number
+  proof_mime      String?        // validated image mime (png/jpeg/webp)
+  proof_data      String?        // base64 proof — access-locked (owner + GLOBAL admins)
+  rejection_reason String?       // safe text only — never credentials/cards
+  reviewed_by     String?
+  reviewed_at     DateTime?
+  metadata        Json?
+  created_at      DateTime       @default(now())
+  updated_at      DateTime       @updatedAt
+
+  showroom    Showroom    @relation(fields: [showroom_id], references: [id], onDelete: Cascade)
+  subscription Subscription? @relation(fields: [subscription_id], references: [id], onDelete: SetNull)
+  reviewer    User?       @relation("PaymentReviewer", fields: [reviewed_by], references: [id], onDelete: SetNull)
+
+  @@index([showroom_id])
+  @@index([showroom_id, status])
+  @@index([subscription_id])
+  @@index([status, created_at])
+  @@index([reviewed_by])
+  @@map("payments")
+}

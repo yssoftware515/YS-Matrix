@@ -1,0 +1,246 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Font variables (--font-display, --font-body, --font-mono) are now
+   supplied by next/font/google via .variable classNames on <html> in
+   layout.tsx — not declared here anymore, avoiding two sources of truth
+   for the same custom properties. */
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { font-family: var(--font-body); -webkit-font-smoothing: antialiased; }
+
+body {
+  background-color: #020408;
+  color: #C8E6F5;
+  min-height: 100vh;
+  overflow-x: hidden;
+  font-family: var(--font-body);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  letter-spacing: 0.05em;
+}
+
+.font-display { font-family: var(--font-display) !important; }
+.font-body    { font-family: var(--font-body) !important; }
+.font-mono    { font-family: var(--font-mono) !important; }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #040C14; }
+::-webkit-scrollbar-thumb { background: #0D2137; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #4A7A9B; }
+
+::selection { background: rgba(0,212,255,0.2); color: #00D4FF; }
+*:focus-visible { outline: 2px solid #00D4FF; outline-offset: 2px; }
+
+@layer components {
+  .matrix-panel {
+    @apply relative rounded-panel border border-matrix-border shadow-glass;
+    /* Was a near-opaque gradient (0.95–0.98 alpha) — barely translucent,
+       so "backdrop-blur" had almost nothing to blur. True glass needs a
+       lower base alpha so the page's grid/glow actually shows through. */
+    background: linear-gradient(135deg, rgba(16,27,46,0.72) 0%, rgba(10,18,31,0.85) 100%);
+    backdrop-filter: blur(16px) saturate(140%);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+    transition: box-shadow 0.3s ease, border-color 0.3s ease;
+  }
+
+  .bg-grid {
+    background-image:
+      linear-gradient(rgba(0,212,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  .btn-primary {
+    @apply relative px-6 py-3 text-sm font-semibold tracking-widest uppercase;
+    @apply border border-matrix-cyan text-matrix-cyan rounded-lg;
+    @apply transition-all duration-300;
+    @apply hover:bg-matrix-cyan hover:text-matrix-black;
+    @apply disabled:opacity-40 disabled:cursor-not-allowed;
+    font-family: var(--font-display);
+  }
+  .btn-primary:not(:disabled):hover {
+    box-shadow: 0 0 20px rgba(0,212,255,0.4);
+  }
+
+  .btn-secondary {
+    @apply px-6 py-3 text-sm font-semibold tracking-widest uppercase;
+    @apply border border-matrix-border text-matrix-subtle rounded-lg;
+    @apply transition-all duration-300;
+    @apply hover:border-matrix-cyan hover:text-matrix-cyan;
+    font-family: var(--font-display);
+  }
+
+  .btn-danger {
+    @apply px-6 py-3 text-sm font-semibold tracking-widest uppercase;
+    @apply border border-matrix-red text-matrix-red rounded-lg;
+    @apply transition-all duration-300;
+    @apply hover:bg-matrix-red hover:text-white;
+    font-family: var(--font-display);
+  }
+
+  /* ── Compact primary action button — for inline header rows where
+     btn-primary's px-6/py-3/uppercase-Orbitron footprint is too large
+     to sit next to a w-8 h-8 icon-btn (e.g. sales page: "بيع جديد" next
+     to the refresh icon-btn). Confirmed missing from this file — used
+     in sales/page.tsx with no definition anywhere, so this was
+     rendering as an unstyled native <button>. ── */
+  .matrix-btn {
+    @apply inline-flex items-center gap-2 px-4 h-9 rounded-lg text-xs font-semibold tracking-wide;
+    @apply border border-matrix-cyan/60 text-matrix-cyan bg-matrix-cyan/[0.08];
+    @apply transition-all duration-200;
+    @apply hover:bg-matrix-cyan hover:text-matrix-black hover:border-matrix-cyan;
+    @apply disabled:opacity-40 disabled:cursor-not-allowed;
+    font-family: var(--font-mono);
+  }
+  .matrix-btn:not(:disabled):hover {
+    box-shadow: 0 0 16px rgba(0,212,255,0.35);
+  }
+
+  /* ── Confirmed missing — used 6x in SaleCreateModal.tsx as
+     `<label className="matrix-label">`. Matches the exact style
+     already hand-coded inline for Login page's field labels
+     (text-xs uppercase tracking-widest text-matrix-subtle mb-2). ── */
+  .matrix-label {
+    @apply block text-xs uppercase tracking-widest text-matrix-subtle mb-2;
+    font-family: var(--font-mono);
+  }
+
+  /* ── Confirmed missing — ghost/secondary counterpart to matrix-btn,
+     used side-by-side with it in SaleCreateModal's footer ("إلغاء" /
+     "تأكيد البيع"). Same h-9 sizing so both buttons align exactly. ── */
+  .matrix-btn-ghost {
+    @apply inline-flex items-center gap-2 px-4 h-9 rounded-lg text-xs font-semibold tracking-wide;
+    @apply border border-matrix-border text-matrix-subtle bg-transparent;
+    @apply transition-all duration-200;
+    @apply hover:border-matrix-cyan/40 hover:text-matrix-cyan hover:bg-matrix-cyan/[0.04];
+    @apply disabled:opacity-40 disabled:cursor-not-allowed;
+    font-family: var(--font-mono);
+  }
+
+  .matrix-input {
+    @apply w-full px-4 py-3 rounded-lg text-matrix-text text-base;
+    @apply border border-matrix-border bg-matrix-dark;
+    @apply focus:outline-none focus:border-matrix-cyan focus:ring-1 focus:ring-matrix-cyan;
+    @apply transition-all duration-200 placeholder-matrix-subtle;
+    font-family: var(--font-body);
+  }
+
+  .kpi-card {
+    @apply matrix-panel p-5 cursor-default transition-all duration-300;
+    @apply hover:border-matrix-cyan/50 hover:scale-[1.01] shadow-glass;
+  }
+  .kpi-card:hover {
+    @apply shadow-glass-hover;
+  }
+
+  .badge-cyan   { @apply inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-matrix-cyan/10   text-matrix-cyan   border border-matrix-cyan/20;   font-family: var(--font-mono); }
+  .badge-green  { @apply inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-matrix-green/10  text-matrix-green  border border-matrix-green/20;  font-family: var(--font-mono); }
+  .badge-red    { @apply inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-matrix-red/10    text-matrix-red    border border-matrix-red/20;    font-family: var(--font-mono); }
+  .badge-amber  { @apply inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-matrix-amber/10  text-matrix-amber  border border-matrix-amber/20;  font-family: var(--font-mono); }
+  .badge-purple { @apply inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-matrix-purple/10 text-matrix-purple border border-matrix-purple/20; font-family: var(--font-mono); }
+
+  .matrix-table { @apply w-full text-sm; }
+  .matrix-table thead tr {
+    @apply border-b border-matrix-border;
+    /* Was transparent (inherited panel bg) — headers blended into the
+       body and gave the table no visual "shelf" to sit on. */
+    background: rgba(10,18,31,0.6);
+  }
+  .matrix-table thead th {
+    @apply px-6 py-4 text-right text-xs uppercase tracking-widest text-matrix-subtle;
+    font-family: var(--font-mono);
+  }
+  .matrix-table tbody tr {
+    @apply border-b border-matrix-border/40 transition-colors duration-150 hover:bg-matrix-cyan/[0.04];
+  }
+  .matrix-table tbody td {
+    @apply px-6 py-4 text-matrix-text;
+    font-family: var(--font-body);
+  }
+
+  /* ── Unified icon action button (edit/delete/etc) — replaces raw
+     colored borders scattered inline across pages (inventory, sales,
+     customers...) with one consistent, elegant control. Neutral by
+     default; color only appears on hover/focus, per the "zero visual
+     noise" brief — action buttons shouldn't compete with data. ── */
+  .icon-btn {
+    @apply inline-flex items-center justify-center w-8 h-8 rounded-lg;
+    @apply border border-matrix-border text-matrix-subtle;
+    @apply transition-all duration-200;
+    @apply hover:border-matrix-cyan/40 hover:text-matrix-cyan hover:bg-matrix-cyan/[0.06];
+  }
+  .icon-btn-danger {
+    @apply hover:border-matrix-red/40 hover:text-matrix-red hover:bg-matrix-red/[0.06];
+  }
+
+  .nav-item {
+    @apply flex items-center gap-3 px-4 py-3 rounded-lg text-sm;
+    @apply text-matrix-subtle transition-all duration-200 cursor-pointer;
+    @apply hover:text-matrix-cyan hover:bg-matrix-cyan/5;
+    font-family: var(--font-body);
+  }
+  .nav-item.active {
+    @apply text-matrix-cyan bg-matrix-cyan/10 border border-matrix-cyan/20;
+  }
+
+  .section-title {
+    @apply text-xs uppercase tracking-[0.2em] text-matrix-subtle mb-4;
+    font-family: var(--font-mono);
+  }
+
+  /* ── Confirmed missing — used in SaleDetailDrawer.tsx as
+     `className="section-label mb-2"`. Deliberately has NO margin
+     baked in (unlike section-title's mb-4) since every call site
+     already supplies its own spacing utility; baking in a second
+     margin would just fight the explicit one via CSS source order. ── */
+  .section-label {
+    @apply text-[10px] font-mono uppercase tracking-[0.15em] text-matrix-subtle;
+  }
+
+  .stat-value {
+    @apply text-2xl font-bold tracking-wide;
+    font-family: var(--font-mono);
+  }
+
+  .skeleton { @apply bg-matrix-border rounded animate-pulse; }
+
+  /* ── Compact filter bar — pairs with matrix-input for select/search
+     controls so they read as one unified control row instead of
+     stretched full-width rows stacked above the table. ── */
+  .filter-bar {
+    @apply flex flex-wrap items-center gap-2 p-1.5 rounded-lg border border-matrix-border bg-matrix-dark/60;
+  }
+  .filter-select {
+    @apply matrix-input w-auto py-1.5 px-3 text-xs border-transparent bg-transparent;
+    @apply hover:border-matrix-border focus:bg-matrix-panel;
+  }
+
+  /* ── Corner-cut aesthetic — opt-in utility, NOT merged into
+     .matrix-input/.btn-primary directly. Applying it there would
+     silently change every input/button across every already-shipped
+     dashboard page (inventory, sales, customers...), which was never
+     requested. Combine explicitly where wanted: className="matrix-input
+     corner-cut". Two opposite corners clip at 45°, the other two keep
+     their normal border-radius — a deliberate mixed look, consistent
+     with Modal.tsx's existing corner-bracket treatment. ── */
+  .corner-cut {
+    clip-path: polygon(
+      14px 0, 100% 0, 100% calc(100% - 14px),
+      calc(100% - 14px) 100%, 0 100%, 0 14px
+    );
+  }
+
+  .text-neon-cyan {
+    color: #00D4FF;
+    text-shadow: 0 0 10px rgba(0,212,255,0.6), 0 0 30px rgba(0,212,255,0.3);
+  }
+  .text-neon-green {
+    color: #00FF88;
+    text-shadow: 0 0 10px rgba(0,255,136,0.6), 0 0 30px rgba(0,255,136,0.3);
+  }
+}

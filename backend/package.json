@@ -1,0 +1,52 @@
+{
+  "name": "ys-matrix-erp-backend",
+  "version": "1.0.0",
+  "description": "YS-MATRIX ERP Backend - Multi-Tenant SaaS API",
+  "author": "Yahya Al-Sulami <admin@ys-matrix.com>",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "nodemon src/index.js",
+    "start": "node src/index.js",
+    "build": "prisma generate",
+    "postinstall": "prisma generate",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:migrate:prod": "prisma migrate deploy",
+    "db:seed:admin": "node src/utils/seed.superadmin.js",
+    "db:seed:demo": "node src/utils/seed.demo.js",
+    "db:seed:authz": "node src/utils/seed.authorization.js",
+    "db:seed:plans": "node src/utils/seed.plans.js",
+    "db:seed:pricing": "node src/utils/seed.pricing.js",
+    "db:seed": "npm run db:seed:admin && npm run db:seed:demo && npm run db:seed:authz && npm run db:seed:plans && npm run db:seed:pricing",
+    "db:studio": "prisma studio",
+    "db:reset": "prisma migrate reset",
+    "test": "node --test \"tests/*.test.js\"",
+    "test:safety": "node scripts/test-db-guard.selftest.js",
+    "test:integration": "node scripts/test-db-guard.js && node scripts/test-db-reset.js && node --test --test-concurrency=1 \"tests/integration/*.test.js\"",
+    "test:all": "npm test && npm run test:integration"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.10.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "date-fns": "^4.2.1",
+    "dotenv": "^16.4.5",
+    "express": "^4.18.3",
+    "express-rate-limit": "^7.2.0",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "node-cron": "^4.5.0",
+    "resend": "^6.16.0",
+    "winston": "^3.12.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
+    "nodemon": "^3.1.0",
+    "prisma": "^5.10.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
