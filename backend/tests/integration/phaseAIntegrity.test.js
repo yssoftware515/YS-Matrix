@@ -61,6 +61,16 @@ test.before(async () => {
   base = await startServer();
   await seedAll();
 
+  // Ensure the Phase A partial unique index exists regardless of DB
+  // setup method. prisma migrate reset applies this raw SQL migration,
+  // but prisma db push does not. Creating it idempotently here makes
+  // the test self-contained.
+  await db.$executeRawUnsafe(`
+    CREATE UNIQUE INDEX IF NOT EXISTS "subscriptions_one_pending_per_showroom"
+    ON "subscriptions" ("showroom_id")
+    WHERE status = 'PENDING_PAYMENT'
+  `);
+
   superToken  = await tokenFor(base, 'sa@test.local');
   ownerAToken = await tokenFor(base, 'owner-a@test.local');
   ownerBToken = await tokenFor(base, 'owner-b@test.local');

@@ -25,6 +25,7 @@ const crypto = require('node:crypto');
 const { startServer, stopServer, api } = require('../helpers/harness');
 const { seedAll, tokenFor, PASSWORD, IDS } = require('../helpers/fixtures');
 const { seedPlans } = require('../../src/utils/seed.plans');
+const { getDateRange } = require('../../src/utils/dateRange');
 const { baseClient: db } = require('../../src/config/database');
 const notificationService = require('../../src/services/notification.service');
 
@@ -268,8 +269,9 @@ test('C4-EXP-2: expenses list exposes pagination.total_amount = exact DB sum ove
   // The aggregate must equal the database's own sum over the same
   // filter (other tests in this file also create expenses in-range —
   // the DB aggregate is the ground truth, not a hardcoded number).
+  const monthRange = getDateRange({ range: 'month' });
   const dbAgg = await db.expense.aggregate({
-    where: { showroom_id: IDS.showroomA, expense_date: { gte: new Date(new Date().setDate(1)) } },
+    where: { showroom_id: IDS.showroomA, expense_date: monthRange },
     _sum:  { amount: true },
   });
   assert.strictEqual(res.body.pagination.total_amount, parseFloat(dbAgg._sum.amount?.toString() || '0'));
