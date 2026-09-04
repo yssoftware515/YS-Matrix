@@ -404,6 +404,8 @@ model Customer {
 
   @@index([showroom_id])
   @@index([showroom_id, is_active])
+  @@index([showroom_id, national_id])
+  @@index([showroom_id, phone])
   @@map("customers")
 }
 
@@ -449,6 +451,7 @@ model Sale {
   @@index([showroom_id])
   @@index([showroom_id, sold_at])
   @@index([showroom_id, status])
+  @@index([showroom_id, customer_id])
   @@map("sales")
 }
 
@@ -586,6 +589,7 @@ model Notification {
 
   @@index([showroom_id])
   @@index([showroom_id, is_read])
+  @@index([showroom_id, user_id])
   @@index([created_at])
   @@map("notifications")
 }

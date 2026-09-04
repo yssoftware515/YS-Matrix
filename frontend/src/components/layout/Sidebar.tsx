@@ -200,6 +200,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
               alt="YS-MATRIX"
               fill
               sizes="36px"
+              priority
               className="object-contain"
             />
           </div>

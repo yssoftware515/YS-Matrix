@@ -428,11 +428,10 @@ export default function UsersManagementPage() {
     <DashboardLayout title="إدارة المستخدمين">
     <div style={{
       background: "#07070f",
-      fontFamily: "'Tajawal', 'Cairo', sans-serif",
+      fontFamily: "'Cairo', sans-serif",
       direction: "rtl", color: "#e2e2f0",
     }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap');
         @keyframes spin     { to { transform: rotate(360deg); } }
         @keyframes slideUp  { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
         @keyframes toastIn  { from { opacity:0; transform:translateX(20px); } to { opacity:1; transform:translateX(0); } }

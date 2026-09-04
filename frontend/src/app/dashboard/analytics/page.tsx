@@ -6,12 +6,11 @@ import { KpiCard } from '@/components/ui/KpiCard';
 import { analyticsApi, type TopSellingItem } from '@/lib/api';
 import { formatCurrency, vehicleTypeLabel, cn } from '@/lib/utils';
 import { TrendingUp, DollarSign, Package } from 'lucide-react';
-import { ResponsiveContainer, AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Cell } from 'recharts';
+import { RevenueAreaChart, MonthlyBarChart, ProfitPieChart } from './AnalyticsCharts';
 
 type RangeType = 'today' | 'week' | 'month' | 'year';
 
 const RANGES = [{ value: 'today', label: 'اليوم' }, { value: 'week', label: 'الأسبوع' }, { value: 'month', label: 'الشهر' }, { value: 'year', label: 'السنة' }];
-const COLORS = ['#00D4FF','#00FF88','#FFB800','#9B5DE5','#FF2D55','#0066FF'];
 
 export default function AnalyticsPage() {
   const [range, setRange] = useState<RangeType>('month');
@@ -32,11 +31,6 @@ export default function AnalyticsPage() {
   const { data: profitBD } = useQuery({ queryKey: ['profit-bd', range], queryFn: () => analyticsApi.getProfitBreakdown({ range }) });
   const { data: netProfit } = useQuery({ queryKey: ['net-profit', range], queryFn: () => analyticsApi.getNetProfit({ range }) });
 
-  const Tip = ({ active, payload, label }: { active?: boolean; payload?: { value: number }[]; label?: string }) => {
-    if (!active || !payload?.length) return null;
-    return <div className="matrix-panel px-3 py-2 text-xs font-mono"><p className="text-matrix-subtle mb-1">{label}</p>{payload.map((p, i) => <p key={i} className="text-matrix-green">{formatCurrency(p.value)}</p>)}</div>;
-  };
-
   return (
     <DashboardLayout title="التحليلات">
       <div className="space-y-6">
@@ -54,32 +48,11 @@ export default function AnalyticsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="matrix-panel p-5">
             <p className="section-title">الإيرادات اليومية</p>
-            <ResponsiveContainer width="100%" height={200}>
-              <AreaChart data={revenue?.data || []} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="rg2" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#00FF88" stopOpacity={0.2} /><stop offset="95%" stopColor="#00FF88" stopOpacity={0} /></linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(13,33,55,0.8)" />
-                <XAxis dataKey="date" tick={{ fill: '#4A7A9B', fontSize: 9, fontFamily: 'JetBrains Mono' }} />
-                <YAxis tick={{ fill: '#4A7A9B', fontSize: 9, fontFamily: 'JetBrains Mono' }} />
-                <Tooltip content={<Tip />} />
-                <Area type="monotone" dataKey="revenue" stroke="#00FF88" strokeWidth={2} fill="url(#rg2)" />
-                <Area type="monotone" dataKey="profit" stroke="#00D4FF" strokeWidth={2} fillOpacity={0} />
-              </AreaChart>
-            </ResponsiveContainer>
+            <RevenueAreaChart data={revenue?.data || []} />
           </div>
           <div className="matrix-panel p-5">
             <p className="section-title">المقارنة الشهرية</p>
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={(monthly || []).slice(-6)} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(13,33,55,0.8)" />
-                <XAxis dataKey="month" tick={{ fill: '#4A7A9B', fontSize: 9, fontFamily: 'JetBrains Mono' }} />
-                <YAxis tick={{ fill: '#4A7A9B', fontSize: 9, fontFamily: 'JetBrains Mono' }} />
-                <Tooltip content={<Tip />} />
-                <Bar dataKey="revenue" fill="#00D4FF" fillOpacity={0.7} radius={[4,4,0,0]} />
-                <Bar dataKey="profit" fill="#00FF88" fillOpacity={0.7} radius={[4,4,0,0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            <MonthlyBarChart data={(monthly || []).slice(-6)} />
           </div>
         </div>
 
@@ -106,14 +79,7 @@ export default function AnalyticsPage() {
           <div className="matrix-panel p-5">
             <p className="section-title">توزيع الربح حسب النوع</p>
             {(profitBD || []).length > 0 ? (
-              <ResponsiveContainer width="100%" height={200}>
-                <PieChart>
-                  <Pie data={profitBD || []} dataKey="profit" nameKey="type" cx="50%" cy="50%" outerRadius={80}>
-                    {(profitBD || []).map((_: unknown, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} fillOpacity={0.8} />)}
-                  </Pie>
-                  <Tooltip formatter={(v) => formatCurrency(typeof v === 'number' ? v : 0)} />
-                </PieChart>
-              </ResponsiveContainer>
+              <ProfitPieChart data={profitBD || []} />
             ) : <p className="text-center text-sm text-matrix-subtle py-16">لا توجد بيانات</p>}
           </div>
         </div>

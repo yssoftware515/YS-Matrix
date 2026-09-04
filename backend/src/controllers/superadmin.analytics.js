@@ -103,20 +103,20 @@ const getSystemStats = async (req, res) => {
       take:    5,
     });
 
-    const topShowroomsEnriched = await Promise.all(
-      topShowrooms.map(async (s) => {
-        const showroom = await db.showroom.findUnique({
-          where:  { id: s.showroom_id },
-          select: { name: true, slug: true },
-        });
-        return {
-          showroom_id:    s.showroom_id,
-          showroom_name:  showroom?.name || '—',
-          sales_count:    s._count,
-          total_revenue:  parseFloat(s._sum.total?.toString() || '0'),
-        };
-      })
-    );
+    const topShowroomsEnriched = await (async () => {
+      const ids = topShowrooms.map((s) => s.showroom_id);
+      const showroomRows = ids.length > 0
+        ? await db.showroom.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } })
+        : [];
+      const showroomMap = {};
+      for (const r of showroomRows) showroomMap[r.id] = r.name;
+      return topShowrooms.map((s) => ({
+        showroom_id:   s.showroom_id,
+        showroom_name: showroomMap[s.showroom_id] || '—',
+        sales_count:   s._count,
+        total_revenue: parseFloat(s._sum.total?.toString() || '0'),
+      }));
+    })();
 
     return response.success(res, {
       showrooms: {

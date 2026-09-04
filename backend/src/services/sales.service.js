@@ -160,13 +160,13 @@ const createSale = async ({ showroomId, userId, data }) => {
   }
 
   // ── Check inventory availability ─────────────────────────
-  const inventoryChecks = await Promise.all(
-    items.map((item) =>
-      prisma.inventory.findFirst({
-        where: { id: item.inventory_id, showroom_id: showroomId, status: 'IN_STOCK' },
-      })
-    )
-  );
+  const inventoryIds = items.map((item) => item.inventory_id);
+  const inventoryRows = await prisma.inventory.findMany({
+    where: { id: { in: inventoryIds }, showroom_id: showroomId, status: 'IN_STOCK' },
+  });
+  const inventoryMap = {};
+  for (const row of inventoryRows) inventoryMap[row.id] = row;
+  const inventoryChecks = items.map((item) => inventoryMap[item.inventory_id] || null);
 
   for (let i = 0; i < inventoryChecks.length; i++) {
     const inv     = inventoryChecks[i];

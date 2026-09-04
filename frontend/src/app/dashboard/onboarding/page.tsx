@@ -127,7 +127,7 @@ function Step1({ form, setForm }: { form: OnboardForm; setForm: (f: OnboardForm)
         {form.logo_url && (
           <div className="mt-3 flex items-center gap-3 p-3 rounded-lg bg-matrix-dark border border-matrix-border/50">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={form.logo_url} alt="logo preview" className="w-10 h-10 object-contain rounded" />
+            <img src={form.logo_url} alt="logo preview" loading="lazy" className="w-10 h-10 object-contain rounded" />
             <span className="text-xs text-matrix-subtle font-mono truncate">{form.logo_url}</span>
           </div>
         )}
@@ -254,7 +254,7 @@ function Step3({ form }: { form: OnboardForm }) {
           <Upload className="w-4 h-4 text-matrix-subtle shrink-0" />
           <span className="text-[10px] font-mono text-matrix-subtle">الشعار</span>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={form.logo_url} alt="logo" className="w-8 h-8 object-contain rounded mr-auto" />
+          <img src={form.logo_url} alt="logo" loading="lazy" className="w-8 h-8 object-contain rounded mr-auto" />
         </div>
       )}
     </motion.div>
