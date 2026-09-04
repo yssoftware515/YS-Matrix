@@ -1,7 +1,42 @@
 # YS-Matrix — Security Audit
 
-**Status:** Discovery / Forensic Audit — Phase 1. Defensive review only; no exploitation performed; no code modified.
+**Status:** TASK-003 Security Hardening — COMPLETE (2026-09-04)
 **Severity legend:** CRITICAL / HIGH / MEDIUM / LOW / INFORMATIONAL (rationale given per finding).
+
+---
+
+## TASK-003 Fixes Applied
+
+### Rate Limiting (Production Defaults)
+
+| Endpoint | Window | Max Requests | Env Var |
+|---|---|---|---|
+| Login (`/auth/login`) | 15 min | **5** | `RATE_LIMIT_AUTH_MAX` |
+| Register (`/auth/register-account`) | **1 hour** | **3** | `RATE_LIMIT_REGISTER_MAX` |
+| Forgot/Reset Password | **1 hour** | **3** | `RATE_LIMIT_FORGOT_MAX` |
+| Refresh Token (`/auth/refresh`) | 15 min | **30** | `RATE_LIMIT_REFRESH_MAX` |
+| Global (all endpoints) | 15 min | 300 | `RATE_LIMIT_MAX` |
+| Sensitive Ops (impersonate, etc.) | 15 min | 10 | `RATE_LIMIT_SENSITIVE_MAX` |
+| SuperAdmin | 15 min | 30 | `RATE_LIMIT_SUPERADMIN_MAX` |
+
+### Files Modified
+
+| File | Change |
+|---|---|
+| `backend/prisma/schema.prisma:14` | Added `debian-openssl-3.0.x` to `binaryTargets` for Vercel runtime |
+| `backend/src/config/security.js:44-84` | Split auth limiter into login (5/15min) + register (3/hour); added refresh limiter (30/15min); forgotPassword window → 1 hour |
+| `backend/src/routes/auth.routes.js:37-83` | Added `registerLimiter`, `refreshLimiter`; applied register limiter to `/register-account`, refresh limiter to `/refresh` |
+| `backend/src/utils/html.js` | Added `errorPage(status, title)` helper — styled HTML error page with Arabic RTL support |
+| `backend/src/controllers/invoice.controller.js:71,291` | Replaced raw `<h1>` error responses with styled `errorPage()` |
+| `backend/src/controllers/receipt.controller.js:46,165` | Replaced raw `<h1>` error responses with styled `errorPage()` |
+| `backend/.env.test` | Added `RATE_LIMIT_REGISTER_MAX=100` for test ceiling |
+
+### What Was NOT Changed (and Why)
+
+- **HSTS preload**: Vercel edge layer already sends `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload` (vercel.json:25). Adding it to next.config.js would duplicate the header.
+- **CSP `connect-src`**: Already dynamically derives API origin from `NEXT_PUBLIC_API_URL` env var — correct for all deployments.
+- **CSP `script-src 'unsafe-inline'`**: Required by Next.js App Router RSC inline bootstrap scripts. Commented in next.config.js with rationale.
+- **Auth cookie unsigned**: Frontend middleware cookie (`ys-auth`) is UX-only (route redirect). Real security is server-side JWT verification. Changing this would break the SPA auth flow for no security gain.
 
 ---
 
@@ -19,7 +54,7 @@ Static review of every middleware, controller, route, config file, migration, an
 4. **Anti-enumeration** on login and forgot-password (uniform messages).
 5. **One-time, hashed, TTL'd password-reset tokens**, atomic with session revocation.
 6. **Rotating refresh tokens** with atomic rotation; rejected on showroom/license changes (Matrix Audit P2).
-7. **Rate limiting** at global/auth/sensitive/superadmin/forgot layers; argon-free but adequate bcrypt 12.
+7. **Rate limiting** at global/auth/sensitive/superadmin/forgot/refresh layers; argon-free but adequate bcrypt 12. Login: 5/15min, Register: 3/hour, Forgot/Reset: 3/hour, Refresh: 30/15min, Global: 300/15min.
 8. **helmet** (CSP in prod, HSTS preload, nosniff, frameguard deny, XSS filter legacy), strict **CORS allow-list with credentials**, production CORS localhost rejection.
 9. **Soft-delete everywhere**; no real DELETE SQL paths in application code.
 10. **Cross-tenant playbook**: the legacy `?showroom_id=` backdoor for SuperAdmin was removed (tenant.middleware header doc), and all cross-tenant paths are explicit `baseClient` + documented.

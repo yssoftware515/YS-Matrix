@@ -10,7 +10,7 @@ const logger = require('../config/logger');
 // Phase C.1: escaping/formatting/CSP helpers moved to the shared
 // utils/html.js — used by BOTH this controller and the new receipt
 // controller, so the security-critical logic lives in exactly one place.
-const { escapeHtml, fmtMoney, fmtDate, newNonce, documentCSP } = require('../utils/html');
+const { escapeHtml, fmtMoney, fmtDate, newNonce, documentCSP, errorPage } = require('../utils/html');
 
 // ─────────────────────────────────────────
 // GET INVOICE DATA (JSON)
@@ -68,7 +68,10 @@ const getInvoiceHTML = async (req, res) => {
       },
     });
 
-    if (!sale) return res.status(404).send('<h1>Invoice not found</h1>');
+    if (!sale) {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.status(404).send(errorPage(404, 'الفاتورة غير موجودة'));
+    }
 
     const vehicleTypeAR = {
       MOTORCYCLE: 'دراجة نارية', CAR: 'سيارة', TUKTUK: 'توك توك',
@@ -290,7 +293,8 @@ const getInvoiceHTML = async (req, res) => {
     res.send(html);
   } catch (err) {
     logger.error('Invoice HTML error:', err);
-    res.status(500).send('<h1>Error generating invoice</h1>');
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.status(500).send(errorPage(500, 'خطأ في إنشاء الفاتورة'));
   }
 };
 

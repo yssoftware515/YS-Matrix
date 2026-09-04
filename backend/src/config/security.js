@@ -52,12 +52,17 @@ const SECURITY = {
       windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000', 10),
       max:      parseInt(process.env.RATE_LIMIT_MAX       || '300',    10),
     },
-    // Anonymous credential endpoints (login/register-account ONLY —
-    // Phase 3 P3-A: /refresh, /me, /logout and /change-password must
-    // not consume this brute-force budget): 10 req / 15 min
+    // Login: 5 req / 15 min (TASK-003: brute-force protection).
+    // Env-tunable via RATE_LIMIT_AUTH_MAX for test ceiling override.
     auth: {
       windowMs: 15 * 60 * 1000,
-      max:      parseInt(process.env.RATE_LIMIT_AUTH_MAX || '10', 10),
+      max:      parseInt(process.env.RATE_LIMIT_AUTH_MAX || '5', 10),
+    },
+    // Register: 3 req / 1 hour (TASK-003: account creation abuse prevention).
+    // Env-tunable via RATE_LIMIT_REGISTER_MAX for test ceiling override.
+    register: {
+      windowMs: 60 * 60 * 1000,
+      max:      parseInt(process.env.RATE_LIMIT_REGISTER_MAX || '3', 10),
     },
     // Sensitive ops (SuperAdmin: password reset, create user, impersonate): 10 req / 15 min.
     // Authenticated SuperAdmin operations warrant a higher threshold than
@@ -72,14 +77,19 @@ const SECURITY = {
       windowMs: 15 * 60 * 1000,
       max:      parseInt(process.env.RATE_LIMIT_SUPERADMIN_MAX || '30', 10),
     },
-    // Forgot password: 3 req / 15 min (prevent email enumeration).
+    // Forgot password: 3 req / 1 hour (TASK-003: prevent email enumeration).
     // Env-tunable for the test env (RATE_LIMIT_FORGOT_MAX) exactly like
     // the other limiters — the production default stays 3; the
     // dedicated rateLimit integration suite proves the enforcement
     // mechanics against the raised ceiling.
     forgotPassword: {
-      windowMs: 15 * 60 * 1000,
+      windowMs: 60 * 60 * 1000,
       max:      parseInt(process.env.RATE_LIMIT_FORGOT_MAX || '3', 10),
+    },
+    // Refresh token: 30 req / 15 min (TASK-003: limit token replay window).
+    refresh: {
+      windowMs: 15 * 60 * 1000,
+      max:      parseInt(process.env.RATE_LIMIT_REFRESH_MAX || '30', 10),
     },
   },
 

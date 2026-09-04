@@ -42,4 +42,26 @@ const newNonce = () => crypto.randomBytes(16).toString('hex');
 const documentCSP = (nonce) =>
   `default-src 'none'; script-src 'self' 'nonce-${nonce}'; style-src 'self' 'unsafe-inline' https:; font-src https:; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'`;
 
-module.exports = { escapeHtml, fmtMoney, fmtDate, newNonce, documentCSP };
+const errorPage = (status, title) =>
+  `<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${escapeHtml(title)}</title>
+  <style>
+    body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:system-ui,-apple-system,sans-serif;background:#f8f9fa;color:#333}
+    .err{text-align:center;padding:2rem}
+    .err h1{font-size:4rem;margin:0;color:#dc3545}
+    .err p{font-size:1.1rem;color:#666;margin-top:.5rem}
+  </style>
+</head>
+<body>
+  <div class="err">
+    <h1>${status}</h1>
+    <p>${escapeHtml(title)}</p>
+  </div>
+</body>
+</html>`;
+
+module.exports = { escapeHtml, fmtMoney, fmtDate, newNonce, documentCSP, errorPage };

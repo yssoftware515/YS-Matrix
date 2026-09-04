@@ -19,7 +19,7 @@
 
 const prisma = require('../config/database');
 const logger = require('../config/logger');
-const { escapeHtml, fmtMoney, fmtDate, newNonce, documentCSP } = require('../utils/html');
+const { escapeHtml, fmtMoney, fmtDate, newNonce, documentCSP, errorPage } = require('../utils/html');
 
 const getInstallmentReceiptHTML = async (req, res) => {
   try {
@@ -43,7 +43,10 @@ const getInstallmentReceiptHTML = async (req, res) => {
       },
     });
 
-    if (!installment) return res.status(404).send('<h1>Receipt not found</h1>');
+    if (!installment) {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.status(404).send(errorPage(404, 'الإيصال غير موجود'));
+    }
 
     const remainingCount = await prisma.installment.count({
       where: { sale_id: installment.sale.id, is_paid: false },
@@ -164,7 +167,8 @@ const getInstallmentReceiptHTML = async (req, res) => {
     res.send(html);
   } catch (err) {
     logger.error('Receipt HTML error:', err);
-    res.status(500).send('<h1>Error generating receipt</h1>');
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.status(500).send(errorPage(500, 'خطأ في إنشاء الإيصال'));
   }
 };
 

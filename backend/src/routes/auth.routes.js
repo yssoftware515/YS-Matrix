@@ -34,13 +34,9 @@ const {
   registerAccountSchema,
 } = require('../validations/subscription.validation');
 
-// ── Login/Register-account Limiter (Phase 3 — P3-A) ────────────
-// Brute-force guard for the two ANONYMOUS credential endpoints only.
-// Previously applied at mount (index.js) to the ENTIRE /auth prefix —
-// every /refresh, /me, /logout and /change-password call consumed the
-// same 10/15min budget as login attempts, so a busy multi-tab session
-// or a shared-NAT showroom could lock itself out of its own API.
-// Authenticated flows stay covered by the global limiter instead.
+// ── Login Limiter (Phase 3 — P3-A, TASK-003) ──────────────────
+// Brute-force guard for the anonymous login endpoint only.
+// 5 req / 15 min (production default, env-tunable).
 const authLimiter = rateLimit({
   windowMs: SECURITY.rateLimit.auth.windowMs,
   max:      SECURITY.rateLimit.auth.max,
@@ -48,34 +44,46 @@ const authLimiter = rateLimit({
   handler: (req, res) => response.tooManyRequests(res, 'محاولات تسجيل دخول كثيرة. يرجى المحاولة بعد 15 دقيقة.'),
 });
 
-// ── Forgot/Reset Password Limiter (Matrix Audit — Recommendation #8) ──
-// SECURITY.rateLimit.forgotPassword already existed in security.js
-// (3 req/15min — "prevent email enumeration") but was never actually
-// applied to any route; only the generous global limiter (100/15min)
-// covered this endpoint. Applied to BOTH forgot-password-request AND
-// reset-password — the same abuse profile applies to each (an
-// attacker hammering either one to probe accounts or exhaust the
-// email-sending quota).
+// ── Register Limiter (TASK-003) ──────────────────────────────
+// Account creation abuse prevention: 3 req / 1 hour.
+const registerLimiter = rateLimit({
+  windowMs: SECURITY.rateLimit.register.windowMs,
+  max:      SECURITY.rateLimit.register.max,
+  standardHeaders: true, legacyHeaders: false,
+  handler: (req, res) => response.tooManyRequests(res, 'طلبات تسجيل كثيرة جداً. يرجى المحاولة بعد ساعة.'),
+});
+
+// ── Forgot/Reset Password Limiter (Matrix Audit — Recommendation #8, TASK-003) ──
+// 3 req / 1 hour (production default, env-tunable).
 const forgotPasswordLimiter = rateLimit({
   windowMs: SECURITY.rateLimit.forgotPassword.windowMs,
   max:      SECURITY.rateLimit.forgotPassword.max,
-  message:  { success: false, message: 'طلبات كثيرة جداً. يرجى المحاولة بعد 15 دقيقة.' },
+  message:  { success: false, message: 'طلبات كثيرة جداً. يرجى المحاولة بعد ساعة.' },
   standardHeaders: true,
   legacyHeaders:   false,
 });
 
+// ── Refresh Token Limiter (TASK-003) ─────────────────────────
+// Limits refresh token replay: 30 req / 15 min.
+const refreshLimiter = rateLimit({
+  windowMs: SECURITY.rateLimit.refresh.windowMs,
+  max:      SECURITY.rateLimit.refresh.max,
+  standardHeaders: true, legacyHeaders: false,
+  handler: (req, res) => response.tooManyRequests(res, 'طلبات تحديث كثيرة. يرجى المحاولة بعد قليل.'),
+});
+
 // ── Public routes ─────────────────────────────────────────────
 router.post('/login',   authLimiter, validate(loginSchema),        authController.login);
-router.post('/refresh', validate(refreshTokenSchema), authController.refreshToken);
+router.post('/refresh', refreshLimiter, validate(refreshTokenSchema), authController.refreshToken);
 
 // ── Phase 4: public self-registration (tenant bootstrap) ──────
 // Creates showroom + OWNER + 10-day TRIAL claim in one atomic
 // transaction (auth.controller.registerAccount). Role is fixed
 // OWNER — the schema is strict() so no privileged role can be
-// smuggled in. Anonymous credential endpoint → authLimiter applies.
+// smuggled in. Anonymous credential endpoint → registerLimiter applies.
 router.post(
   '/register-account',
-  authLimiter,
+  registerLimiter,
   validate(registerAccountSchema),
   authController.registerAccount
 );
