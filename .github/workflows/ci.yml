@@ -49,6 +49,34 @@ jobs:
 
       - run: npm ci
 
+      - name: Generate .env.test
+        run: |
+          JWT_ACCESS=$(openssl rand -hex 32)
+          JWT_REFRESH=$(openssl rand -hex 32)
+          CRON=$(openssl rand -hex 32)
+          printf '%s\n' \
+            "NODE_ENV=test" \
+            "DATABASE_URL=postgresql://postgres@localhost:5434/ys_matrix_test" \
+            "JWT_ACCESS_SECRET=$JWT_ACCESS" \
+            "JWT_REFRESH_SECRET=$JWT_REFRESH" \
+            "JWT_ACCESS_EXPIRES=15m" \
+            "JWT_REFRESH_EXPIRES=7d" \
+            "CRON_SECRET=$CRON" \
+            "BCRYPT_ROUNDS=4" \
+            "API_VERSION=v1" \
+            "PORT=0" \
+            "SYSTEM_SHOWROOM_ID=sh-sys" \
+            "RATE_LIMIT_SUPERADMIN_MAX=500" \
+            "RATE_LIMIT_SENSITIVE_MAX=100" \
+            "RATE_LIMIT_AUTH_MAX=200" \
+            "RATE_LIMIT_FORGOT_MAX=100" \
+            "RATE_LIMIT_REGISTER_MAX=100" \
+            "RATE_LIMIT_MAX=10000" \
+            "RATE_LIMIT_WINDOW_MS=60000" \
+            "EMAIL_TRANSPORT=console" \
+            "EMAIL_SIMULATE_FAILURE=false" \
+            > .env.test
+
       - name: Prisma Generate
         run: npx prisma generate
 
@@ -79,7 +107,6 @@ jobs:
           --health-retries=5
     env:
       NODE_ENV: test
-      DATABASE_URL: postgresql://postgres@localhost:5434/ys_matrix_test
     steps:
       - uses: actions/checkout@v4
 
@@ -90,6 +117,34 @@ jobs:
           cache-dependency-path: backend/package-lock.json
 
       - run: npm ci
+
+      - name: Generate .env.test
+        run: |
+          JWT_ACCESS=$(openssl rand -hex 32)
+          JWT_REFRESH=$(openssl rand -hex 32)
+          CRON=$(openssl rand -hex 32)
+          printf '%s\n' \
+            "NODE_ENV=test" \
+            "DATABASE_URL=postgresql://postgres@localhost:5434/ys_matrix_test" \
+            "JWT_ACCESS_SECRET=$JWT_ACCESS" \
+            "JWT_REFRESH_SECRET=$JWT_REFRESH" \
+            "JWT_ACCESS_EXPIRES=15m" \
+            "JWT_REFRESH_EXPIRES=7d" \
+            "CRON_SECRET=$CRON" \
+            "BCRYPT_ROUNDS=4" \
+            "API_VERSION=v1" \
+            "PORT=0" \
+            "SYSTEM_SHOWROOM_ID=sh-sys" \
+            "RATE_LIMIT_SUPERADMIN_MAX=500" \
+            "RATE_LIMIT_SENSITIVE_MAX=100" \
+            "RATE_LIMIT_AUTH_MAX=200" \
+            "RATE_LIMIT_FORGOT_MAX=100" \
+            "RATE_LIMIT_REGISTER_MAX=100" \
+            "RATE_LIMIT_MAX=10000" \
+            "RATE_LIMIT_WINDOW_MS=60000" \
+            "EMAIL_TRANSPORT=console" \
+            "EMAIL_SIMULATE_FAILURE=false" \
+            > .env.test
 
       - name: Prisma Generate
         run: npx prisma generate

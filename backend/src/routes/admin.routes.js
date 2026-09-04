@@ -227,6 +227,7 @@ router.get(
 
 router.post(
   '/payments/:id/approve',
+  sensitiveOpsLimiter,
   validateMulti({ params: idParamSchema, body: adminApprovePaymentSchema }),
   requirePermission('platform_payment:update', SCOPES.GLOBAL),
   adminSubscriptionController.approvePayment
@@ -234,6 +235,7 @@ router.post(
 
 router.post(
   '/payments/:id/reject',
+  sensitiveOpsLimiter,
   validateMulti({ params: idParamSchema, body: adminRejectPaymentSchema }),
   requirePermission('platform_payment:update', SCOPES.GLOBAL),
   adminSubscriptionController.rejectPayment
