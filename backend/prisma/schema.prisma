@@ -204,6 +204,13 @@ model User {
   // ── Password Reset (Matrix Audit — Phase 1) ──────────────
   password_reset_tokens PasswordResetToken[]
 
+  // ── MFA / TOTP (Batch 5 — P0-A) ─────────────────────────
+  // SUPER_ADMIN only. Encrypted TOTP secret (AES-256-GCM),
+  // bcrypt-hashed backup codes, and an activation flag.
+  totp_secret_encrypted String?
+  totp_enabled          Boolean   @default(false)
+  backup_codes          Json?     // string[] of bcrypt hashes
+
   @@index([showroom_id])
   @@index([email])
   @@index([profile_id])
