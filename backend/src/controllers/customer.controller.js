@@ -24,6 +24,7 @@ const getAllCustomers = async (req, res) => {
     const { customers, pagination } = await customerService.listCustomers({
       showroomId: req.showroomId,
       query:      req.query,
+      role:       req.user.role,
     });
     return response.paginated(res, customers, pagination);
   } catch (err) { return handleServiceError(res, err); }
@@ -35,6 +36,7 @@ const getCustomer = async (req, res) => {
     const customer = await customerService.getCustomer({
       showroomId: req.showroomId,
       id:         req.params.id,
+      role:       req.user.role,
     });
     if (!customer) return response.notFound(res, 'العميل غير موجود.');
     return response.success(res, customer);

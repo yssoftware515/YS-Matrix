@@ -17,10 +17,17 @@ const { escapeHtml, fmtMoney, fmtDate, newNonce, documentCSP, errorPage } = requ
 // ─────────────────────────────────────────
 const getInvoice = async (req, res) => {
   try {
+    const isStaff = req.user.role === 'STAFF';
     const sale = await prisma.sale.findFirst({
       where: { id: req.params.id, showroom_id: req.showroomId },
       include: {
-        customer: { select: { name: true, phone: true, national_id: true, address: true } },
+        customer: {
+          select: {
+            name: true, phone: true,
+            ...(isStaff ? {} : { national_id: true }),
+            address: true,
+          },
+        },
         user: { select: { id: true, name: true } },
         showroom: { select: { id: true, name: true, phone: true, address: true, email: true } },
         items: {
@@ -56,10 +63,17 @@ const getInvoice = async (req, res) => {
 // ─────────────────────────────────────────
 const getInvoiceHTML = async (req, res) => {
   try {
+    const isStaff = req.user.role === 'STAFF';
     const sale = await prisma.sale.findFirst({
       where: { id: req.params.id, showroom_id: req.showroomId },
       include: {
-        customer: { select: { name: true, phone: true, national_id: true, address: true } },
+        customer: {
+          select: {
+            name: true, phone: true,
+            ...(isStaff ? {} : { national_id: true }),
+            address: true,
+          },
+        },
         user: { select: { name: true } },
         showroom: { select: { name: true, phone: true, address: true, email: true } },
         items: {

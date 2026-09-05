@@ -13,6 +13,7 @@ const search = async (req, res) => {
     const results = await searchService.globalSearch({
       showroomId: req.showroomId,
       query:      req.query.q,
+      role:       req.user.role,
     });
     return response.success(res, results);
   } catch (err) {

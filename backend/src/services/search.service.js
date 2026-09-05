@@ -15,7 +15,7 @@ const prisma = require('../config/database');
 const MIN_QUERY_LENGTH = 2;
 const MAX_RESULTS_PER_ENTITY = 5;
 
-const globalSearch = async ({ showroomId, query }) => {
+const globalSearch = async ({ showroomId, query, role }) => {
   const q = (query || '').trim();
 
   if (!q || q.length < MIN_QUERY_LENGTH) {
@@ -26,6 +26,7 @@ const globalSearch = async ({ showroomId, query }) => {
   }
 
   const searchFilter = { contains: q, mode: 'insensitive' };
+  const isStaff = role === 'STAFF';
 
   // All 4 searches run in parallel — single round-trip to DB
   const [inventory, customers, suppliers, sales] = await Promise.all([
@@ -71,7 +72,7 @@ const globalSearch = async ({ showroomId, query }) => {
         id:          true,
         name:        true,
         phone:       true,
-        national_id: true,
+        ...(isStaff ? {} : { national_id: true }),
         address:     true,
       },
     }),

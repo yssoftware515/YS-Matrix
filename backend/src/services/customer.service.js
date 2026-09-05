@@ -10,7 +10,7 @@ const { getPagination, buildPaginationMeta } = require('../utils/pagination');
 // ─────────────────────────────────────────
 // LIST
 // ─────────────────────────────────────────
-const listCustomers = async ({ showroomId, query }) => {
+const listCustomers = async ({ showroomId, query, role }) => {
   const { page, limit, skip } = getPagination(query);
   const { search, include_inactive } = query;
 
@@ -25,13 +25,20 @@ const listCustomers = async ({ showroomId, query }) => {
     ];
   }
 
+  const isStaff = role === 'STAFF';
+
   const [customers, total] = await Promise.all([
     prisma.customer.findMany({
       where,
       skip,
       take:    limit,
       orderBy: { created_at: 'desc' },
-      include: { _count: { select: { sales: true } } },
+      select: {
+        id: true, name: true, phone: true,
+        ...(isStaff ? {} : { national_id: true }),
+        address: true, notes: true, is_active: true, created_at: true,
+        _count: { select: { sales: true } },
+      },
     }),
     prisma.customer.count({ where }),
   ]);
@@ -42,11 +49,13 @@ const listCustomers = async ({ showroomId, query }) => {
 // ─────────────────────────────────────────
 // GET ONE
 // ─────────────────────────────────────────
-const getCustomer = async ({ showroomId, id }) => {
+const getCustomer = async ({ showroomId, id, role }) => {
+  const isStaff = role === 'STAFF';
   return prisma.customer.findFirst({
     where: { id, showroom_id: showroomId },
     select: {
-      id: true, name: true, phone: true, national_id: true,
+      id: true, name: true, phone: true,
+      ...(isStaff ? {} : { national_id: true }),
       address: true, notes: true, created_at: true,
       sales: {
         orderBy: { sold_at: 'desc' },
