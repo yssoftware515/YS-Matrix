@@ -15,7 +15,7 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { baseClient: db } = require('../config/database');
 const prisma             = require('../config/database');
-const { generateTokens, verifyRefreshToken, getRefreshTokenExpiry, hashRefreshToken } = require('../config/jwt');
+const { generateTokens, verifyRefreshToken, getRefreshTokenExpiry, hashRefreshToken, JWT_CONFIG } = require('../config/jwt');
 const { validateProfileAssignment, effectiveAuthorization } = require('../services/authorization.service');
 const lifecycleService = require('../services/subscription.lifecycle.service');
 const response           = require('../utils/response');
@@ -38,6 +38,7 @@ const login = async (req, res) => {
     const cleanEmail = email.toLowerCase().trim();
 
     // Cross-tenant lookup — must use baseClient (no showroom_id filter)
+    // totp_enabled is included for MFA flow routing (Batch 5 — P0-A).
     const user = await db.user.findUnique({
       where:   { email: cleanEmail },
       include: {
@@ -147,6 +148,49 @@ const login = async (req, res) => {
         where: { id: user.id },
         data:  { failed_login_attempts: 0, locked_until: null },
       });
+    }
+
+    // ── MFA Check (Batch 5 — P0-A) ──────────────────────────
+    // SUPER_ADMIN accounts have mandatory TOTP MFA. After password
+    // verification, issue a SHORT-LIVED temp_token instead of full
+    // session tokens. The frontend routes to the MFA verification
+    // screen, which calls /mfa/verify or /mfa/enroll with this
+    // temp_token as the Bearer credential.
+    if (user.role === 'SUPER_ADMIN') {
+      const jwt = require('jsonwebtoken');
+      const tempPayload = {
+        userId:     user.id,
+        showroomId: user.showroom_id,
+        role:       user.role,
+        purpose:    user.totp_enabled ? 'mfa_verify' : 'mfa_enroll',
+      };
+      const tempToken = jwt.sign(tempPayload, JWT_CONFIG.access.secret, {
+        expiresIn: '5m',
+      });
+
+      auditLog({
+        showroomId: user.showroom_id,
+        userId:     user.id,
+        action:     'LOGIN',
+        entity:     'user',
+        entityId:   user.id,
+        ipAddress:  req.ip,
+        userAgent:  req.headers?.['user-agent'],
+      });
+
+      return response.success(res, {
+        user: {
+          id:      user.id,
+          name:    user.name,
+          email:   user.email,
+          role:    user.role,
+        },
+        tempToken,
+        mfa_required: true,
+        mfa_enrollment_required: !user.totp_enabled,
+      }, user.totp_enabled
+        ? 'يرجى إدخال رمز المصادقة الثنائية.'
+        : 'يرجى إعداد المصادقة الثنائية أولاً.');
     }
 
     // License check (skip for SuperAdmin)
