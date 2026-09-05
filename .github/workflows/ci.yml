@@ -122,9 +122,10 @@ jobs:
           JWT_ACCESS=$(openssl rand -hex 32)
           JWT_REFRESH=$(openssl rand -hex 32)
           CRON=$(openssl rand -hex 32)
+          DB_URL="postgresql://postgres:postgres@localhost:5434/ys_matrix_test"
           printf '%s\n' \
             "NODE_ENV=test" \
-            "DATABASE_URL=postgresql://postgres:postgres@localhost:5434/ys_matrix_test" \
+            "DATABASE_URL=$DB_URL" \
             "JWT_ACCESS_SECRET=$JWT_ACCESS" \
             "JWT_REFRESH_SECRET=$JWT_REFRESH" \
             "JWT_ACCESS_EXPIRES=15m" \
@@ -144,6 +145,9 @@ jobs:
             "EMAIL_TRANSPORT=console" \
             "EMAIL_SIMULATE_FAILURE=false" \
             > .env.test
+          # Prisma CLI auto-loads .env (not .env.test) for DATABASE_URL.
+          # Export it via $GITHUB_ENV so prisma migrate deploy can connect.
+          echo "DATABASE_URL=$DB_URL" >> "$GITHUB_ENV"
 
       - name: Prisma Generate
         run: npx prisma generate
