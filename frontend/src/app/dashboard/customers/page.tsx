@@ -171,7 +171,7 @@ export default function CustomersPage() {
   const columns: Column<Customer>[] = [
     { key: 'name', header: 'اسم العميل', render: (r) => <p className="font-semibold">{r.name}</p> },
     { key: 'phone', header: 'الهاتف', render: (r) => <span className="font-mono text-xs">{r.phone || '—'}</span> },
-    { key: 'national_id', header: 'الهوية', render: (r) => <span className="font-mono text-xs text-matrix-subtle">{r.national_id || '—'}</span> },
+    ...(canManage ? [{ key: 'national_id', header: 'الهوية', render: (r: Customer) => <span className="font-mono text-xs text-matrix-subtle">{r.national_id || '—'}</span> }] : []),
     { key: 'address', header: 'العنوان', render: (r) => <span className="text-sm text-matrix-subtle">{r.address || '—'}</span> },
     { key: 'sales', header: 'المشتريات', align: 'center', render: (r) => <span className="badge-cyan">{r._count?.sales || 0}</span> },
     { key: 'created_at', header: 'تاريخ الإضافة', render: (r) => <span className="text-xs font-mono text-matrix-subtle">{formatDate(r.created_at)}</span> },
@@ -345,7 +345,7 @@ export default function CustomersPage() {
             <div className="space-y-3">
               {([
                 ['الهاتف',          detail.phone       || '—'],
-                ['رقم الهوية',      detail.national_id || '—'],
+                ...(canManage ? [['رقم الهوية', detail.national_id || '—']] : []),
                 ['العنوان',         detail.address     || '—'],
                 ['ملاحظات',         detail.notes       || '—'],
                 ['عدد المشتريات',   String(detail._count?.sales || 0)],

@@ -6,6 +6,7 @@ import { toast } from 'react-hot-toast';
 import { Printer, ArrowRight } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { api } from '@/lib/api';
+import { useAuthStore, isOwnerPlus } from '@/lib/auth';
 import { openPrintHTML } from '@/lib/print';
 import { formatCurrency, formatDate, formatDateTime, saleTypeLabel, saleStatusLabel, vehicleTypeLabel, cn } from '@/lib/utils';
 
@@ -23,6 +24,8 @@ interface InvoiceData {
 export default function InvoicePage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const { user } = useAuthStore();
+  const canViewNationalId = isOwnerPlus(user?.role);
 
   const { data: invoice, isLoading, isError } = useQuery({
     queryKey: ['invoice', id],
@@ -91,7 +94,7 @@ export default function InvoicePage() {
             <div className="bg-matrix-panel p-5">
               <p className="section-title">بيانات العميل</p>
               <div className="space-y-2 text-sm">
-                {[['الاسم', invoice.customer?.name || 'بدون عميل'], ['الهاتف', invoice.customer?.phone || '—'], ['الهوية', invoice.customer?.national_id || '—'], ['العنوان', invoice.customer?.address || '—']].map(([l, v]) => (
+                {[['الاسم', invoice.customer?.name || 'بدون عميل'], ['الهاتف', invoice.customer?.phone || '—'], ...(canViewNationalId ? [['الهوية', invoice.customer?.national_id || '—']] : []), ['العنوان', invoice.customer?.address || '—']].map(([l, v]) => (
                   <div key={l} className="flex justify-between"><span className="text-matrix-subtle">{l}</span><span className="font-mono">{v}</span></div>
                 ))}
               </div>
