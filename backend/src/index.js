@@ -35,6 +35,7 @@ const prisma = require('./config/database');
 
 // ── Existing Routes ───────────────────────────────────────────
 const authRoutes         = require('./routes/auth.routes');
+const mfaRoutes          = require('./routes/mfa.routes');
 const showroomRoutes     = require('./routes/showroom.routes');
 const onboardingRoutes   = require('./routes/onboarding.routes');
 const inventoryRoutes    = require('./routes/inventory.routes');
@@ -158,6 +159,7 @@ app.use('/api/cron', cronRoutes);
 // /auth prefix, so /refresh, /me, /logout and /change-password never
 // consume the login-attempt budget (Phase 3 — P3-A).
 app.use(`${API_PREFIX}/auth`,          authRoutes);
+app.use(`${API_PREFIX}/mfa`,           mfaRoutes);
 app.use(`${API_PREFIX}/showrooms`,     showroomRoutes);
 app.use(`${API_PREFIX}/onboarding`,    onboardingRoutes);
 app.use(`${API_PREFIX}/inventory`,     inventoryRoutes);
