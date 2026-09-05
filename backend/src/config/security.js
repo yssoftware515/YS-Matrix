@@ -91,6 +91,14 @@ const SECURITY = {
       windowMs: 15 * 60 * 1000,
       max:      parseInt(process.env.RATE_LIMIT_REFRESH_MAX || '30', 10),
     },
+    // MFA TOTP verification: 5 req / 15 min (Batch 5 — P0-A).
+    // Tighter than sensitive ops because a 6-digit code is
+    // brute-forceable without a rate limit. Applied to both
+    // /mfa/verify (login flow) and /mfa/confirm-enrollment.
+    mfaVerify: {
+      windowMs: 15 * 60 * 1000,
+      max:      parseInt(process.env.RATE_LIMIT_MFA_VERIFY_MAX || '5', 10),
+    },
   },
 
   // ── CORS ─────────────────────────────────────────────────
