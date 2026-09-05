@@ -12,14 +12,13 @@ async function login(page: import('@playwright/test').Page) {
   await page.getByPlaceholder('admin@ys-matrix.com').fill(OWNER_EMAIL);
   await page.getByPlaceholder('••••••••').fill(OWNER_PASSWORD);
   await page.getByRole('button', { name: /تسجيل الدخول|login/i }).click();
-  // Wait for redirect to dashboard
   await page.waitForURL('**/dashboard/**', { timeout: 15_000 });
 }
 
 // ─── Spec ────────────────────────────────────────────────────
 test.describe('Sales flow: login → cash sale → invoice', () => {
-  test('creates a cash sale and views the invoice', async ({ page }) => {
-    test.setTimeout(60_000);
+  test('creates a cash sale and verifies the new invoice', async ({ page }) => {
+    test.setTimeout(90_000);
 
     // 1. Login
     await login(page);
@@ -29,64 +28,92 @@ test.describe('Sales flow: login → cash sale → invoice', () => {
     await page.goto(`${BASE_URL}/dashboard/sales`);
     await page.waitForLoadState('networkidle');
 
-    // 3. Click "بيع جديد" (New Sale) button
+    // 3. Capture the sales count BEFORE creating the sale.
+    //    The count is rendered as "{pagination.total} عملية بيع"
+    const countText = page.locator('p.text-matrix-subtle').filter({ hasText: /عملية بيع/ }).first();
+    await expect(countText).toBeVisible({ timeout: 10_000 });
+    const countBefore = parseInt(
+      (await countText.textContent())!.replace(/[^\d]/g, ''),
+      10,
+    );
+
+    // 4. Click "بيع جديد" (New Sale) button
     const newSaleBtn = page.getByRole('button', { name: /بيع جديد/i });
     await expect(newSaleBtn).toBeVisible({ timeout: 10_000 });
     await newSaleBtn.click();
 
-    // 4. Modal should open — verify by looking for the modal heading or search input
-    // The SaleCreateModal has a search input for inventory items
-    const modal = page.locator('[class*="fixed inset-0"]').first();
-    await expect(modal).toBeVisible({ timeout: 5_000 });
+    // 5. Modal opens — wait for the modal heading "بيع جديد" (span, not button)
+    const modalHeading = page.locator('span').filter({ hasText: /^بيع جديد$/ }).first();
+    await expect(modalHeading).toBeVisible({ timeout: 5_000 });
 
-    // 5. Search for an inventory item
-    // The modal has a search input with placeholder "ابحث عن ماركة أو طراز..."
-    const itemSearch = page.getByPlaceholder(/ابحث عن ماركة/i);
+    // 6. Search for an inventory item
+    //    Placeholder: "ابحث عن سيارة أو منتج..."
+    const itemSearch = page.getByPlaceholder('ابحث عن سيارة أو منتج');
     await expect(itemSearch).toBeVisible({ timeout: 5_000 });
     await itemSearch.fill(' ');
-    // Wait for results to load (API call)
     await page.waitForTimeout(2_000);
 
-    // 6. Select the first available item from the dropdown
-    // Items appear as clickable buttons in the search results
-    const firstItem = page.locator('button').filter({ hasText: /IN_STOCK|متاح/ }).first();
-    if (await firstItem.isVisible().catch(() => false)) {
-      await firstItem.click();
-    }
+    // 7. Select the first available item from the dropdown results.
+    //    Items appear as <button> elements inside a dropdown panel,
+    //    containing brand + model text (e.g. "Toyota Camry").
+    //    Hard assert: the result MUST appear — if nothing shows, the test
+    //    fails here instead of silently skipping the rest of the flow.
+    const firstItem = page.locator('.matrix-panel button').filter({ hasText: /轿车|mot|car|toy|honda|nissan|suzuki|hyundai|kia|mg|chery|byd|fiat|seat|toyota|honda|nissan|suzuki|camry|corolla/i }).first();
+    const noResult = page.locator('p').filter({ hasText: /^لا نتائج$/ });
 
-    // 7. The form should now show the selected item details
-    // Verify the total is computed (non-zero)
-    const totalDisplay = page.locator('text=/الإجمالي|total/i').first();
-    if (await totalDisplay.isVisible().catch(() => false)) {
-      await expect(totalDisplay).toBeVisible();
-    }
+    // Wait for either results or empty state
+    await expect(async () => {
+      const hasResults = await firstItem.count() > 0;
+      const hasEmpty = await noResult.count() > 0;
+      expect(hasResults || hasEmpty).toBeTruthy();
+    }).toPass({ timeout: 10_000 });
 
-    // 8. Select CASH payment type (should be default, but click to be sure)
-    const cashOption = page.getByRole('radio', { name: /نقدي|cash/i }).first();
-    if (await cashOption.isVisible().catch(() => false)) {
-      await cashOption.click();
-    }
+    // If "لا نتائج" (no results) is showing, the seed data is empty — this
+    // is a legitimate test failure (the DB needs seeding).
+    const hasNoResults = await noResult.isVisible().catch(() => false);
+    expect(hasNoResults, 'No inventory items found — ensure the test DB is seeded').toBe(false);
 
-    // 9. Submit the sale
-    const submitBtn = page.getByRole('button', { name: /تأكيد البيع|إتمام|create sale/i }).first();
-    if (await submitBtn.isVisible().catch(() => false)) {
-      await submitBtn.click();
+    // Click the first result button (hard: it MUST be visible)
+    await expect(firstItem).toBeVisible({ timeout: 5_000 });
+    await firstItem.click();
 
-      // 10. Wait for success — toast or redirect
-      // After creating a sale, a toast should appear or the modal closes
-      await page.waitForTimeout(3_000);
+    // 8. The form should now show the selected item details.
+    //    Verify the computed total is visible (label: "الإجمالي المحسوب")
+    const totalLabel = page.locator('span').filter({ hasText: 'الإجمالي المحسوب' }).first();
+    await expect(totalLabel).toBeVisible({ timeout: 5_000 });
 
-      // 11. Verify the sale appears in the sales list
-      await page.goto(`${BASE_URL}/dashboard/sales`);
-      await page.waitForLoadState('networkidle');
+    // 9. Select CASH payment type (button with text "💵 نقداً")
+    const cashBtn = page.locator('button').filter({ hasText: /نقداً/ }).first();
+    await expect(cashBtn).toBeVisible({ timeout: 5_000 });
+    await cashBtn.click();
 
-      // The sales table should have at least one row with an invoice number
-      const invoiceCell = page.locator('td .font-mono').first();
-      if (await invoiceCell.isVisible().catch(() => false)) {
-        const invoiceText = await invoiceCell.textContent();
-        expect(invoiceText).toBeTruthy();
-        console.log(`Invoice created: ${invoiceText}`);
-      }
-    }
+    // 10. Submit the sale — button with text "تأكيد البيع"
+    const submitBtn = page.getByRole('button', { name: /تأكيد البيع/i });
+    await expect(submitBtn).toBeVisible({ timeout: 5_000 });
+    await submitBtn.click();
+
+    // 11. Wait for success — toast "تم إنشاء عملية البيع بنجاح"
+    await expect(
+      page.locator('.toast, [role="status"]').filter({ hasText: /تم إنشاء عملية البيع/ }).first(),
+    ).toBeVisible({ timeout: 15_000 });
+
+    // 12. Navigate back to sales list
+    await page.goto(`${BASE_URL}/dashboard/sales`);
+    await page.waitForLoadState('networkidle');
+
+    // 13. Verify the sales count increased by exactly 1
+    await expect(countText).toBeVisible({ timeout: 10_000 });
+    const countAfter = parseInt(
+      (await countText.textContent())!.replace(/[^\d]/g, ''),
+      10,
+    );
+    expect(countAfter, 'Sales count should increase by 1 after creating a sale').toBe(countBefore + 1);
+
+    // 14. Verify the newest invoice row is visible with INV- prefix
+    //     Invoice number format: INV-{SHORT_CODE}-{YEAR}-{SEQUENCE}
+    const newestInvoice = page.locator('table tbody tr').first().locator('td').first().locator('span');
+    await expect(newestInvoice).toBeVisible({ timeout: 5_000 });
+    const invoiceText = await newestInvoice.textContent();
+    expect(invoiceText, 'New invoice must start with INV- prefix').toMatch(/^INV-/);
   });
 });
