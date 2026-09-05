@@ -11,8 +11,8 @@ async function login(page: import('@playwright/test').Page) {
   await page.goto(`${BASE_URL}/auth/login`);
   await page.getByPlaceholder('admin@ys-matrix.com').fill(OWNER_EMAIL);
   await page.getByPlaceholder('••••••••').fill(OWNER_PASSWORD);
-  await page.getByRole('button', { name: /تسجيل الدخول|login/i }).click();
-  await page.waitForURL('**/dashboard/**', { timeout: 15_000 });
+  await page.getByRole('button', { name: /دخول النظام|login/i }).click();
+  await page.waitForURL('**/dashboard**', { timeout: 15_000 });
 }
 
 // ─── Spec ────────────────────────────────────────────────────
@@ -33,7 +33,7 @@ test.describe('Sales flow: login → cash sale → invoice', () => {
     const countText = page.locator('p.text-matrix-subtle').filter({ hasText: /عملية بيع/ }).first();
     await expect(countText).toBeVisible({ timeout: 10_000 });
     const countBefore = parseInt(
-      (await countText.textContent())!.replace(/[^\d]/g, ''),
+      (await countText.textContent())!.match(/\d+/)?.[0] ?? '0',
       10,
     );
 
@@ -50,7 +50,7 @@ test.describe('Sales flow: login → cash sale → invoice', () => {
     //    Placeholder: "ابحث عن سيارة أو منتج..."
     const itemSearch = page.getByPlaceholder('ابحث عن سيارة أو منتج');
     await expect(itemSearch).toBeVisible({ timeout: 5_000 });
-    await itemSearch.fill(' ');
+    await itemSearch.fill('باجاج');
     await page.waitForTimeout(2_000);
 
     // 7. Select the first available item from the dropdown results.
@@ -58,7 +58,7 @@ test.describe('Sales flow: login → cash sale → invoice', () => {
     //    containing brand + model text (e.g. "Toyota Camry").
     //    Hard assert: the result MUST appear — if nothing shows, the test
     //    fails here instead of silently skipping the rest of the flow.
-    const firstItem = page.locator('.matrix-panel button').filter({ hasText: /轿车|mot|car|toy|honda|nissan|suzuki|hyundai|kia|mg|chery|byd|fiat|seat|toyota|honda|nissan|suzuki|camry|corolla/i }).first();
+    const firstItem = page.locator('.matrix-panel button').filter({ hasText: /باجاج|هوندا|باج|mot|car|toy|honda|nissan|suzuki|hyundai|kia|mg|chery|byd|fiat|seat|toyota|camry|corolla/i }).first();
     const noResult = page.locator('p').filter({ hasText: /^لا نتائج$/ });
 
     // Wait for either results or empty state
@@ -104,7 +104,7 @@ test.describe('Sales flow: login → cash sale → invoice', () => {
     // 13. Verify the sales count increased by exactly 1
     await expect(countText).toBeVisible({ timeout: 10_000 });
     const countAfter = parseInt(
-      (await countText.textContent())!.replace(/[^\d]/g, ''),
+      (await countText.textContent())!.match(/\d+/)?.[0] ?? '0',
       10,
     );
     expect(countAfter, 'Sales count should increase by 1 after creating a sale').toBe(countBefore + 1);

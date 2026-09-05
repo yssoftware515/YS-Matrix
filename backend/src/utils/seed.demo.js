@@ -35,7 +35,7 @@ async function main() {
 
   const demoShowroom = await db.showroom.upsert({
     where: { slug: 'alnajma-demo' },
-    update: {},
+    update: { is_onboarded: true },
     create: {
       id: 'demo-showroom-001',
       name: 'معرض النجمة للدراجات',
@@ -44,6 +44,7 @@ async function main() {
       phone: '+967712345678',
       email: 'demo@showroom.com',
       is_active: true,
+      is_onboarded: true,
       license_expiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     },
   });
@@ -107,14 +108,17 @@ async function main() {
   console.log('✅ Demo suppliers created');
 
   const inventoryItems = [
-    { id: 'inv-demo-001', showroom_id: demoShowroom.id, vehicle_type: 'MOTORCYCLE', brand: 'باجاج', model: 'بوكسر 150', year: 2024, color: 'أحمر', engine_cc: 150, cost_price: 850000, selling_price: 1100000, quantity: 5, status: 'IN_STOCK', supplier_id: supplier1.id },
-    { id: 'inv-demo-002', showroom_id: demoShowroom.id, vehicle_type: 'MOTORCYCLE', brand: 'هوندا', model: 'CG 125', year: 2024, color: 'أزرق', engine_cc: 125, cost_price: 700000, selling_price: 950000, quantity: 3, status: 'IN_STOCK', supplier_id: supplier1.id },
-    { id: 'inv-demo-003', showroom_id: demoShowroom.id, vehicle_type: 'TUKTUK', brand: 'باجاج', model: 'ريكشا', year: 2024, color: 'أصفر', engine_cc: 200, cost_price: 1200000, selling_price: 1600000, quantity: 2, status: 'IN_STOCK', supplier_id: supplier1.id },
-    { id: 'inv-demo-004', showroom_id: demoShowroom.id, vehicle_type: 'SPARE_PART', brand: 'عام', model: 'إطار خلفي 3.00-17', cost_price: 15000, selling_price: 25000, quantity: 20, status: 'IN_STOCK', supplier_id: supplier2.id },
+    { showroom_id: demoShowroom.id, vehicle_type: 'MOTORCYCLE', brand: 'باجاج', model: 'بوكسر 150', year: 2024, color: 'أحمر', engine_cc: 150, cost_price: 850000, selling_price: 1100000, quantity: 5, status: 'IN_STOCK', supplier_id: supplier1.id },
+    { showroom_id: demoShowroom.id, vehicle_type: 'MOTORCYCLE', brand: 'هوندا', model: 'CG 125', year: 2024, color: 'أزرق', engine_cc: 125, cost_price: 700000, selling_price: 950000, quantity: 3, status: 'IN_STOCK', supplier_id: supplier1.id },
+    { showroom_id: demoShowroom.id, vehicle_type: 'TUKTUK', brand: 'باجاج', model: 'ريكشا', year: 2024, color: 'أصفر', engine_cc: 200, cost_price: 1200000, selling_price: 1600000, quantity: 2, status: 'IN_STOCK', supplier_id: supplier1.id },
+    { showroom_id: demoShowroom.id, vehicle_type: 'SPARE_PART', brand: 'عام', model: 'إطار خلفي 3.00-17', cost_price: 15000, selling_price: 25000, quantity: 20, status: 'IN_STOCK', supplier_id: supplier2.id },
   ];
 
   for (const item of inventoryItems) {
-    await db.inventory.upsert({ where: { id: item.id }, update: {}, create: item });
+    const existing = await db.inventory.findFirst({
+      where: { showroom_id: item.showroom_id, brand: item.brand, model: item.model },
+    });
+    if (!existing) await db.inventory.create({ data: item });
   }
   console.log('✅ Demo inventory created (4 items)');
 

@@ -2,7 +2,7 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests/e2e',
-  timeout: 60_000,
+  timeout: 90_000,
   retries: 0,
   use: {
     baseURL: process.env.BASE_URL || 'http://localhost:3000',
@@ -12,5 +12,24 @@ export default defineConfig({
   },
   projects: [
     { name: 'chromium', use: { browserName: 'chromium' } },
+  ],
+  webServer: [
+    {
+      command: 'node src/index.js',
+      cwd: '../backend',
+      port: 5000,
+      timeout: 30_000,
+      reuseExistingServer: false,
+      env: {
+        NODE_ENV: 'development',
+      },
+    },
+    {
+      command: 'npx next start -p 3000',
+      cwd: '.',
+      port: 3000,
+      timeout: 30_000,
+      reuseExistingServer: true,
+    },
   ],
 });
