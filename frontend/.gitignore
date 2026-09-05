@@ -8,3 +8,5 @@ dist/
 # TypeScript incremental build cache (generated on every tsc/build run;
 # previously tracked accidentally — untracked, kept on disk)
 tsconfig.tsbuildinfo
+
+test-results/
