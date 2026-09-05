@@ -56,7 +56,7 @@ jobs:
           CRON=$(openssl rand -hex 32)
           printf '%s\n' \
             "NODE_ENV=test" \
-            "DATABASE_URL=postgresql://postgres@localhost:5434/ys_matrix_test" \
+            "DATABASE_URL=postgresql://postgres:postgres@localhost:5434/ys_matrix_test" \
             "JWT_ACCESS_SECRET=$JWT_ACCESS" \
             "JWT_REFRESH_SECRET=$JWT_REFRESH" \
             "JWT_ACCESS_EXPIRES=15m" \
@@ -95,11 +95,10 @@ jobs:
         image: postgres:16
         env:
           POSTGRES_USER: postgres
-          POSTGRES_HOST: localhost
-          POSTGRES_PORT: 5434
+          POSTGRES_PASSWORD: postgres
           POSTGRES_DB: ys_matrix_test
         ports:
-          - 5434:5434
+          - 5434:5432
         options: >-
           --health-cmd="pg_isready -U postgres"
           --health-interval=10s
@@ -125,7 +124,7 @@ jobs:
           CRON=$(openssl rand -hex 32)
           printf '%s\n' \
             "NODE_ENV=test" \
-            "DATABASE_URL=postgresql://postgres@localhost:5434/ys_matrix_test" \
+            "DATABASE_URL=postgresql://postgres:postgres@localhost:5434/ys_matrix_test" \
             "JWT_ACCESS_SECRET=$JWT_ACCESS" \
             "JWT_REFRESH_SECRET=$JWT_REFRESH" \
             "JWT_ACCESS_EXPIRES=15m" \

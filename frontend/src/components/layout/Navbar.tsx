@@ -12,6 +12,7 @@ import { AlertTriangle, Calendar, Building2, CheckCircle2, Menu } from 'lucide-r
 import { useAuthStore } from '@/lib/auth';
 import { formatDate, daysUntil, cn } from '@/lib/utils';
 import { NotificationCenter } from '@/components/ui/NotificationCenter';
+import { GlobalSearch } from '@/components/ui/GlobalSearch';
 
 type LicenseStatus = 'ok' | 'warning' | 'expired' | 'unknown';
 
@@ -132,8 +133,9 @@ export function Navbar({ title = 'لوحة التحكم', onMenuClick }: NavbarP
         )}
       </AnimatePresence>
 
-      {/* Right: License warning (mobile) + NotificationCenter */}
+      {/* Right: Search + License warning (mobile) + NotificationCenter */}
       <div className="flex items-center gap-3 shrink-0">
+        <GlobalSearch />
         {(status === 'warning' || status === 'expired') && (
           <span
             className={cn('flex md:hidden items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px]', style.badge)}
