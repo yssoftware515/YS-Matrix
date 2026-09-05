@@ -26,6 +26,7 @@ const getInvoice = async (req, res) => {
         items: {
           select: {
             quantity: true, unit_price: true, total_price: true, profit: true,
+            vehicle_model: true, color: true, chassis_number: true, engine_number: true,
             inventory: {
               select: {
                 brand: true, model: true, vehicle_type: true,
@@ -64,6 +65,7 @@ const getInvoiceHTML = async (req, res) => {
         items: {
           select: {
             quantity: true, unit_price: true, total_price: true,
+            vehicle_model: true, color: true, chassis_number: true, engine_number: true,
             inventory: {
               select: { brand: true, model: true, vehicle_type: true, color: true, engine_cc: true, chassis_number: true, engine_number: true },
             },

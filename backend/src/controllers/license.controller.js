@@ -9,7 +9,7 @@ const logger = require('../config/logger');
 const SECURITY = require('../config/security');
 const { auditLog } = require('../middleware/audit.middleware');
 const subscriptionService = require('../services/subscription.service');
-const { getPagination, buildPaginationMeta } = require('../utils/pagination');
+const { buildPaginationMeta } = require('../utils/pagination');
 
 // ─────────────────────────────────────────
 // GET LICENSE STATUS (for current showroom)
@@ -131,8 +131,6 @@ const renewLicense = async (req, res) => {
 // ─────────────────────────────────────────
 const getAllLicenses = async (req, res) => {
   try {
-    const { page, limit, skip } = getPagination(req.query);
-
     const where = {};
     if (req.query.is_active !== undefined) {
       where.is_active = req.query.is_active === 'true';
@@ -141,11 +139,9 @@ const getAllLicenses = async (req, res) => {
     const now = new Date();
     const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-    const [showrooms, total, activeCount, expiringCount, expiredCount, inactiveCount] = await Promise.all([
+    const [showrooms, activeCount, expiringCount, expiredCount, inactiveCount] = await Promise.all([
       prisma.showroom.findMany({
         where,
-        skip,
-        take: limit,
         select: {
           id: true, name: true, slug: true,
           is_active: true, license_expiry: true,
@@ -153,7 +149,6 @@ const getAllLicenses = async (req, res) => {
         },
         orderBy: { license_expiry: 'asc' },
       }),
-      prisma.showroom.count({ where }),
       prisma.showroom.count({ where: { ...where, is_active: true, license_expiry: { gt: in7Days } } }),
       prisma.showroom.count({ where: { ...where, is_active: true, license_expiry: { gt: now, lte: in7Days } } }),
       prisma.showroom.count({ where: { ...where, license_expiry: { lte: now } } }),
@@ -177,14 +172,14 @@ const getAllLicenses = async (req, res) => {
     });
 
     const summary = {
-      total,
+      total:          showrooms.length,
       active:         activeCount,
       expiring_soon:  expiringCount,
       expired:        expiredCount,
       inactive:       inactiveCount,
     };
 
-    return response.success(res, { summary, showrooms: enriched, pagination: buildPaginationMeta(total, page, limit) });
+    return response.success(res, { summary, showrooms: enriched });
   } catch (err) {
     logger.error('Get all licenses error:', err);
     return response.error(res, 'Failed to fetch licenses');
