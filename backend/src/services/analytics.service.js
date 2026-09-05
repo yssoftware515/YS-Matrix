@@ -241,7 +241,12 @@ const getProfitBreakdown = async ({ showroomId, query }) => {
     where: {
       sale: { showroom_id: showroomId, sold_at: dateRange, status: { not: 'CANCELLED' } },
     },
-    include: { inventory: { select: { vehicle_type: true } } },
+    select: {
+      total_price: true,
+      profit: true,
+      quantity: true,
+      inventory: { select: { vehicle_type: true } },
+    },
   });
 
   const breakdown = {};

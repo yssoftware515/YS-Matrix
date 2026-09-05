@@ -48,10 +48,10 @@ const PAYMENT_TYPES = [
 
 const SUPPLIER_FIELDS: { k: keyof SupplierForm; l: string; p: string }[] = [
   { k: 'name',    l: 'اسم المورد *', p: 'شركة باجاج' },
-  { k: 'phone',   l: 'الهاتف',       p: '+967...' },
-  { k: 'email',   l: 'البريد',       p: 'info@supplier.com' },
-  { k: 'address', l: 'العنوان',      p: 'صنعاء' },
-  { k: 'notes',   l: 'ملاحظات',      p: 'أي ملاحظات إضافية...' },
+  { k: 'phone',   l: 'الهاتف (اختياري)',       p: '+967...' },
+  { k: 'email',   l: 'البريد (اختياري)',       p: 'info@supplier.com' },
+  { k: 'address', l: 'العنوان (اختياري)',      p: 'صنعاء' },
+  { k: 'notes',   l: 'ملاحظات (اختياري)',      p: 'أي ملاحظات إضافية...' },
 ];
 
 // ── Helper: balance ──────────────────────────────────────────

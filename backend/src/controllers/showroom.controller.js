@@ -56,8 +56,8 @@ const subscriptionService = require('../services/subscription.service');
 // ─────────────────────────────────────────
 const getAllShowrooms = async (req, res) => {
   try {
-    const { page = 1, limit = 20, search, is_active } = req.query;
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const { page, limit, skip } = getPagination(req.query);
+    const { search, is_active } = req.query;
 
     const where = {};
     if (search) {
@@ -75,16 +75,18 @@ const getAllShowrooms = async (req, res) => {
       db.showroom.findMany({
         where,
         skip,
-        take: parseInt(limit),
+        take: limit,
         orderBy: { created_at: 'desc' },
-        include: {
+        select: {
+          id: true, name: true, slug: true, phone: true, email: true,
+          is_active: true, created_at: true, license_expiry: true,
           _count: { select: { users: true, inventory: true, sales: true } },
         },
       }),
       db.showroom.count({ where }),
     ]);
 
-    return response.paginated(res, showrooms, buildPaginationMeta(total, parseInt(page), parseInt(limit)));
+    return response.paginated(res, showrooms, buildPaginationMeta(total, page, limit));
   } catch (err) {
     logger.error('Get showrooms error:', err);
     return response.error(res, 'Failed to fetch showrooms');

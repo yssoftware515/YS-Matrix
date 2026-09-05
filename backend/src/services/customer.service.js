@@ -45,7 +45,9 @@ const listCustomers = async ({ showroomId, query }) => {
 const getCustomer = async ({ showroomId, id }) => {
   return prisma.customer.findFirst({
     where: { id, showroom_id: showroomId },
-    include: {
+    select: {
+      id: true, name: true, phone: true, national_id: true,
+      address: true, notes: true, created_at: true,
       sales: {
         orderBy: { sold_at: 'desc' },
         take:    10,

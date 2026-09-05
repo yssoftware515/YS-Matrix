@@ -1,7 +1,7 @@
 # YS-Matrix — Security Audit
 
-**Status:** TASK-004 Critical Security Fixes & CI/CD — COMPLETE (2026-09-04)
-**Previous:** TASK-003 Security Hardening — COMPLETE (2026-09-04)
+**Status:** MASTER TASK Production Hardening — COMPLETE (2026-09-05)
+**Previous:** TASK-004 Critical Security Fixes & CI/CD — COMPLETE (2026-09-04)
 **Severity legend:** CRITICAL / HIGH / MEDIUM / LOW / INFORMATIONAL (rationale given per finding).
 
 ---
@@ -180,7 +180,7 @@ Static review of every middleware, controller, route, config file, migration, an
 
 - No password hash appears in any API select (verified: all user selects are explicit field lists; e.g. superadmin.controller.js:82-98, 126-148; auth.controller.js:42-77).
 - No tokens returned except token issuance endpoints.
-- Internal configuration never returned (raw Prisma errors suppressed outside development).
+- Internal configuration never returned (raw Prisma errors suppressed outside development; global Prisma error handler maps error codes to safe Arabic messages via `prismaErrorHandler.js`).
 - Frontend stores user object incl. showroom license_expiry — needed by UI (fine).
 
 ## 5. Prioritized Remediation Queue (for planning; nothing implemented)

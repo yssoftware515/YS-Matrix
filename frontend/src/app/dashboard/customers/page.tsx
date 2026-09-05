@@ -57,9 +57,9 @@ const INPUT_CLS =
 // ─── Field definitions ─────────────────────────────────────────────────────────
 const FIELDS = [
   { k: 'name',        l: 'اسم العميل *', p: 'محمود سيد'     },
-  { k: 'phone',       l: 'الهاتف',       p: '01xxxxxxxxx'    },
-  { k: 'national_id', l: 'رقم الهوية',   p: '29xxxxxxxxx'    },
-  { k: 'address',     l: 'العنوان',      p: 'القاهرة، مصر'   },
+  { k: 'phone',       l: 'الهاتف (اختياري)',       p: '01xxxxxxxxx'    },
+  { k: 'national_id', l: 'رقم الهوية (اختياري)',   p: '29xxxxxxxxx'    },
+  { k: 'address',     l: 'العنوان (اختياري)',      p: 'القاهرة، مصر'   },
 ];
 
 export default function CustomersPage() {
@@ -299,7 +299,7 @@ export default function CustomersPage() {
             ))}
             {/* notes — real backend field, was missing from the original form entirely */}
             <div>
-              <label className="block text-xs font-mono uppercase tracking-widest text-matrix-subtle mb-1">ملاحظات</label>
+              <label className="block text-xs font-mono uppercase tracking-widest text-matrix-subtle mb-1">ملاحظات (اختياري)</label>
               <textarea
                 rows={2}
                 value={form.notes}

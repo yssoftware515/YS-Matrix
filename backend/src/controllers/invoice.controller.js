@@ -20,11 +20,12 @@ const getInvoice = async (req, res) => {
     const sale = await prisma.sale.findFirst({
       where: { id: req.params.id, showroom_id: req.showroomId },
       include: {
-        customer: true,
+        customer: { select: { name: true, phone: true, national_id: true, address: true } },
         user: { select: { id: true, name: true } },
         showroom: { select: { id: true, name: true, phone: true, address: true, email: true } },
         items: {
-          include: {
+          select: {
+            quantity: true, unit_price: true, total_price: true, profit: true,
             inventory: {
               select: {
                 brand: true, model: true, vehicle_type: true,
@@ -34,7 +35,10 @@ const getInvoice = async (req, res) => {
             },
           },
         },
-        installments: { orderBy: { due_date: 'asc' } },
+        installments: {
+          select: { due_date: true, amount: true, is_paid: true },
+          orderBy: { due_date: 'asc' },
+        },
       },
     });
 
@@ -54,17 +58,21 @@ const getInvoiceHTML = async (req, res) => {
     const sale = await prisma.sale.findFirst({
       where: { id: req.params.id, showroom_id: req.showroomId },
       include: {
-        customer: true,
+        customer: { select: { name: true, phone: true, national_id: true, address: true } },
         user: { select: { name: true } },
         showroom: { select: { name: true, phone: true, address: true, email: true } },
         items: {
-          include: {
+          select: {
+            quantity: true, unit_price: true, total_price: true,
             inventory: {
               select: { brand: true, model: true, vehicle_type: true, color: true, engine_cc: true, chassis_number: true, engine_number: true },
             },
           },
         },
-        installments: { orderBy: { due_date: 'asc' } },
+        installments: {
+          select: { due_date: true, amount: true, is_paid: true },
+          orderBy: { due_date: 'asc' },
+        },
       },
     });
 

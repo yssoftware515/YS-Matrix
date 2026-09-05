@@ -26,7 +26,8 @@ const helmet    = require('helmet');
 const morgan    = require('morgan');
 const rateLimit = require('express-rate-limit');
 
-const response = require('./utils/response');
+const response     = require('./utils/response');
+const { handlePrismaError } = require('./utils/prismaErrorHandler');
 const SECURITY = require('./config/security');
 // Tenant-scoped client — used by /health?check=db as the DB probe
 // ($queryRaw is client-level, untouched by the tenant extension).
@@ -187,6 +188,10 @@ app.use((err, req, res, next) => {
   if (err.message?.includes('CORS'))          return response.forbidden(res, 'طلب محجوب بسبب سياسة CORS.', 'CORS_BLOCKED');
   if (err.type === 'entity.parse.failed')     return response.validationError(res, null, 'صيغة JSON غير صالحة.');
   if (err.type === 'entity.too.large')        return response.error(res, 'حجم الطلب أكبر من المسموح.', 413);
+
+  // Prisma error handler — maps P2002/P2025/P2003/P2000 to safe Arabic
+  // messages. Full error details go to Winston logs only.
+  if (handlePrismaError(err, res)) return;
 
   logger.error('Unhandled error:', { message: err.message, path: req.path, method: req.method });
 

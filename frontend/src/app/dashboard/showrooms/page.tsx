@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Shield, CheckCircle, XCircle, LogIn, BarChart3, Loader2 } from 'lucide-react';
+import { Plus, Shield, CheckCircle, XCircle, LogIn, BarChart3, Loader2, Key, CalendarPlus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { DataTable, Column } from '@/components/ui/DataTable';
@@ -15,6 +15,23 @@ const EMPTY_FORM = {
   name: '', slug: '', address: '', phone: '', email: '', license_expiry: '',
   owner_name: '', owner_email: '', owner_password: '',
 };
+
+function toSlug(text: string): string {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[\s_]+/g, '-')
+    .replace(/[^\w\u0600-\u06FF-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+function generatePassword(len = 16): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%';
+  const arr = new Uint32Array(len);
+  crypto.getRandomValues(arr);
+  return Array.from(arr, (v) => chars[v % chars.length]).join('');
+}
 
 export default function ShowroomsPage() {
   const qc = useQueryClient();
@@ -59,8 +76,7 @@ export default function ShowroomsPage() {
     mutationFn: (id: string) => superAdminApi.impersonateShowroom(id),
     onSuccess: (result) => {
       startImpersonation(
-        {
-          id: result.user.id, name: result.user.name, email: result.user.email, role: result.user.role,
+        { id: result.user.id, name: result.user.name, email: result.user.email, role: result.user.role,
           showroom: { ...result.showroom, logo_url: result.showroom.logo_url ?? undefined },
         },
         result.accessToken
@@ -71,6 +87,19 @@ export default function ShowroomsPage() {
     onError: (e: unknown) => toast.error(isApiRequestError(e) ? e.message : 'فشل الدخول للمعرض'),
   });
 
+  const [extendShowroomId, setExtendShowroomId] = useState<string | null>(null);
+  const [extendMonths, setExtendMonths] = useState(12);
+
+  const extendMut = useMutation({
+    mutationFn: ({ id, months }: { id: string; months: number }) => {
+      const expiry = new Date();
+      expiry.setMonth(expiry.getMonth() + months);
+      return showroomsApi.update(id, { license_expiry: expiry.toISOString().split('T')[0] });
+    },
+    onSuccess: () => { toast.success('تم تمديد الترخيص'); qc.invalidateQueries({ queryKey: ['showrooms'] }); setExtendShowroomId(null); },
+    onError: (e: unknown) => toast.error(isApiRequestError(e) ? e.message : 'فشل التمديد'),
+  });
+
   const columns: Column<Showroom>[] = [
     { key: 'name', header: 'اسم المعرض', render: (r) => <div><p className="font-semibold">{r.name}</p><p className="text-xs text-matrix-subtle font-mono">{r.slug}</p></div> },
     { key: 'phone', header: 'الهاتف', render: (r) => <span className="text-xs font-mono text-matrix-subtle">{r.phone || '—'}</span> },
@@ -79,6 +108,13 @@ export default function ShowroomsPage() {
     { key: 'stats', header: 'الإحصائيات', hideOnMobile: true, render: (r) => <div className="flex gap-2 text-xs font-mono"><span className="text-matrix-cyan">{r._count?.users || 0} مستخدم</span><span className="text-matrix-subtle">•</span><span className="text-matrix-green">{r._count?.sales || 0} بيع</span></div> },
     { key: 'actions', header: '', align: 'center', render: (r) => (
       <div className="flex items-center gap-2 justify-center">
+        <button
+          onClick={() => setExtendShowroomId(r.id)}
+          title="تمديد الترخيص"
+          className="flex items-center gap-1 px-2 py-1 rounded text-xs border border-matrix-amber/40 text-matrix-amber hover:bg-matrix-amber/10 transition-all"
+        >
+          <CalendarPlus className="w-3 h-3" />تمديد
+        </button>
         <button
           onClick={() => setStatsShowroomId(r.id)}
           title="عرض التفاصيل الكاملة"
@@ -114,8 +150,31 @@ export default function ShowroomsPage() {
         <Modal open={addOpen} onClose={() => setAddOpen(false)} title="إنشاء معرض جديد" size="md"
           footer={<><button onClick={() => setAddOpen(false)} className="btn-secondary py-2">إلغاء</button><button onClick={() => { if (!form.name || !form.slug || !form.license_expiry || !form.owner_name || !form.owner_email || !form.owner_password) { toast.error('الاسم والـ Slug والترخيص وبيانات المدير كلها مطلوبة'); return; } createMut.mutate(form); }} disabled={createMut.isPending} className="btn-primary py-2">إنشاء</button></>}>
           <div className="space-y-4">
-            {[{ k: 'name', l: 'اسم المعرض *', p: 'معرض النجمة', ltr: false }, { k: 'slug', l: 'Slug *', p: 'alnajma', ltr: true }, { k: 'phone', l: 'الهاتف', p: '+967...', ltr: true }, { k: 'email', l: 'البريد', p: 'info@showroom.com', ltr: true }, { k: 'address', l: 'العنوان', p: 'صنعاء', ltr: false }].map(({ k, l, p, ltr }) => (
-              <div key={k}><label className="block text-xs font-mono uppercase tracking-widest text-matrix-subtle mb-1">{l}</label><input type="text" value={(form as Record<string,string>)[k]} onChange={(e) => setForm({ ...form, [k]: e.target.value })} placeholder={p} className="matrix-input" dir={ltr ? 'ltr' : 'rtl'} /></div>
+            {[
+              { k: 'name', l: 'اسم المعرض *', p: 'معرض النجمة', ltr: false },
+              { k: 'slug', l: 'Slug *', p: 'alnajma', ltr: true },
+              { k: 'phone', l: 'الهاتف (اختياري)', p: '+967...', ltr: true },
+              { k: 'email', l: 'البريد (اختياري)', p: 'info@showroom.com', ltr: true },
+              { k: 'address', l: 'العنوان (اختياري)', p: 'صنعاء', ltr: false },
+            ].map(({ k, l, p, ltr }) => (
+              <div key={k}>
+                <label className="block text-xs font-mono uppercase tracking-widest text-matrix-subtle mb-1">{l}</label>
+                <input
+                  type="text"
+                  value={(form as Record<string,string>)[k]}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (k === 'name') {
+                      setForm({ ...form, name: val, slug: toSlug(val) });
+                    } else {
+                      setForm({ ...form, [k]: val });
+                    }
+                  }}
+                  placeholder={p}
+                  className="matrix-input"
+                  dir={ltr ? 'ltr' : 'rtl'}
+                />
+              </div>
             ))}
             <div><label className="block text-xs font-mono uppercase tracking-widest text-matrix-subtle mb-1">تاريخ انتهاء الترخيص *</label><input type="date" value={form.license_expiry} onChange={(e) => setForm({ ...form, license_expiry: e.target.value })} className="matrix-input" dir="ltr" /></div>
 
@@ -125,7 +184,20 @@ export default function ShowroomsPage() {
             {[{ k: 'owner_name', l: 'اسم المدير *', p: 'محمد أحمد', ltr: false }, { k: 'owner_email', l: 'بريد المدير *', p: 'owner@showroom.com', ltr: true }].map(({ k, l, p, ltr }) => (
               <div key={k}><label className="block text-xs font-mono uppercase tracking-widest text-matrix-subtle mb-1">{l}</label><input type="text" value={(form as Record<string,string>)[k]} onChange={(e) => setForm({ ...form, [k]: e.target.value })} placeholder={p} className="matrix-input" dir={ltr ? 'ltr' : 'rtl'} /></div>
             ))}
-            <div><label className="block text-xs font-mono uppercase tracking-widest text-matrix-subtle mb-1">كلمة مرور المدير *</label><input type="password" value={form.owner_password} onChange={(e) => setForm({ ...form, owner_password: e.target.value })} placeholder="••••••••" className="matrix-input" dir="ltr" /></div>
+            <div>
+              <label className="block text-xs font-mono uppercase tracking-widest text-matrix-subtle mb-1">كلمة مرور المدير *</label>
+              <div className="flex gap-2">
+                <input type="password" value={form.owner_password} onChange={(e) => setForm({ ...form, owner_password: e.target.value })} placeholder="••••••••" className="matrix-input flex-1" dir="ltr" />
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, owner_password: generatePassword() })}
+                  title="توليد كلمة مرور قوية"
+                  className="flex items-center gap-1 px-3 py-1 rounded border border-matrix-cyan/40 text-matrix-cyan hover:bg-matrix-cyan/10 transition-all text-xs shrink-0"
+                >
+                  <Key className="w-3 h-3" />توليد
+                </button>
+              </div>
+            </div>
           </div>
         </Modal>
 
@@ -160,6 +232,37 @@ export default function ShowroomsPage() {
               ))}
             </div>
           ) : null}
+        </Modal>
+
+        <Modal
+          open={!!extendShowroomId}
+          onClose={() => setExtendShowroomId(null)}
+          title="تمديد الترخيص"
+          size="sm"
+          footer={<>
+            <button onClick={() => setExtendShowroomId(null)} className="btn-secondary py-2">إلغاء</button>
+            <button onClick={() => extendShowroomId && extendMut.mutate({ id: extendShowroomId, months: extendMonths })} disabled={extendMut.isPending} className="btn-primary py-2">تمديد</button>
+          </>}
+        >
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-mono uppercase tracking-widest text-matrix-subtle mb-2">المدة (شهور)</label>
+              <div className="flex gap-2">
+                {[1, 3, 6, 12].map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => setExtendMonths(m)}
+                    className={cn('flex-1 py-2 rounded text-xs font-mono border transition-all', extendMonths === m ? 'border-matrix-cyan bg-matrix-cyan/10 text-matrix-cyan' : 'border-matrix-border text-matrix-subtle hover:border-matrix-cyan/40')}
+                  >
+                    {m} {m === 1 ? 'شهر' : 'أشهر'}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <p className="text-xs text-matrix-subtle text-center">
+              سيتم إضافة {extendMonths} {extendMonths === 1 ? 'شهر' : 'أشهر'} من تاريخ اليوم
+            </p>
+          </div>
         </Modal>
       </div>
     </DashboardLayout>
