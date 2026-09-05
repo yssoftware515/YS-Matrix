@@ -48,7 +48,7 @@ const { baseClient: db } = require('../config/database');
 const response = require('../utils/response');
 const logger = require('../config/logger');
 const { auditLog } = require('../middleware/audit.middleware');
-const { buildPaginationMeta } = require('../utils/pagination');
+const { getPagination, buildPaginationMeta } = require('../utils/pagination');
 const subscriptionService = require('../services/subscription.service');
 
 // ─────────────────────────────────────────
