@@ -21,6 +21,7 @@ export default defineConfig({
       timeout: 30_000,
       reuseExistingServer: !!process.env.CI,
       env: {
+        ...process.env,
         NODE_ENV: process.env.CI ? 'test' : 'development',
       },
     },
