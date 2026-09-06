@@ -189,6 +189,7 @@ jobs:
       API_URL: http://localhost:5000/api/v1
       E2E_EMAIL: owner@demo.com
       E2E_PASSWORD: "Demo@Owner2024!"
+      E2E_SA_EMAIL: sa@test.local
     steps:
       - uses: actions/checkout@v4
 
