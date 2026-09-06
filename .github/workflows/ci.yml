@@ -265,7 +265,7 @@ jobs:
 
       # ── Run E2E tests ────────────────────────────────────────
       - name: Run Playwright Tests
-        run: npx playwright test --reporter=list,json=test-results.json
+        run: npx playwright test
 
       - name: Upload Playwright Report
         if: always()

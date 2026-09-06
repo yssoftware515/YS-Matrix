@@ -4,6 +4,10 @@ export default defineConfig({
   testDir: './tests/e2e',
   timeout: 90_000,
   retries: 0,
+  reporter: [
+    ['list'],
+    ['json', { outputFile: 'test-results.json' }],
+  ],
   use: {
     baseURL: process.env.BASE_URL || 'http://localhost:3000',
     headless: true,
