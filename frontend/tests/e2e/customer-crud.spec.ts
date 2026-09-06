@@ -38,8 +38,8 @@ test.describe('Customer CRUD: create → edit → deactivate → reactivate', ()
     await expect(modalTitle).toBeVisible({ timeout: 5_000 });
 
     // 5. Fill form
-    await page.getByPlaceholder('اسم العميل').fill(customerName);
-    await page.getByPlaceholder('رقم الهاتف').fill(customerPhone);
+    await page.getByPlaceholder('محمود سيد').fill(customerName);
+    await page.getByPlaceholder('01xxxxxxxxx').fill(customerPhone);
 
     // 6. Submit
     const saveBtn = page.getByRole('button', { name: /حفظ$/i });
@@ -64,7 +64,7 @@ test.describe('Customer CRUD: create → edit → deactivate → reactivate', ()
     const editModal = page.locator('span').filter({ hasText: /^تعديل بيانات العميل$/ }).first();
     await expect(editModal).toBeVisible({ timeout: 5_000 });
 
-    const nameInput = page.locator('input').filter({ hasText: customerName }).first();
+    const nameInput = page.getByLabel('اسم العميل').first();
     await nameInput.clear();
     await nameInput.fill(editedName);
 

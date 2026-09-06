@@ -58,15 +58,15 @@ test.describe('Installment payment: create sale → pay installment → verify',
     await installmentBtn.click();
 
     // 8. Fill installment fields
-    const downPaymentInput = page.getByPlaceholder(/المقدمة|down.?payment/i).first();
+    const downPaymentInput = page.getByLabel('الدفعة الأولى (المقدمة)').first();
     await expect(downPaymentInput).toBeVisible({ timeout: 5_000 });
     await downPaymentInput.fill('200000');
 
-    const monthlyInput = page.getByPlaceholder(/القسط الشهري|monthly/i).first();
+    const monthlyInput = page.getByLabel('قيمة القسط الشهري').first();
     await expect(monthlyInput).toBeVisible({ timeout: 5_000 });
     await monthlyInput.fill('100000');
 
-    const monthsInput = page.getByPlaceholder(/عدد الأشهر|months/i).first();
+    const monthsInput = page.getByLabel('عدد الأشهر').first();
     await expect(monthsInput).toBeVisible({ timeout: 5_000 });
     await monthsInput.fill('2');
 
@@ -87,15 +87,15 @@ test.describe('Installment payment: create sale → pay installment → verify',
     // 12. Verify installments appear
     await expect(page.locator('text=الأقساط').first()).toBeVisible({ timeout: 10_000 });
 
-    // 13. Find a pending installment and click "ادفع" (Pay)
-    const payBtn = page.locator('button').filter({ hasText: /ادفع/ }).first();
+    // 13. Find a pending installment and click pay
+    const payBtn = page.locator('button').filter({ hasText: /تسجيل الدفعة/ }).first();
     const hasPayBtn = await payBtn.isVisible().catch(() => false);
 
     if (hasPayBtn) {
       await payBtn.click();
 
       // 14. Confirm payment
-      const confirmPay = page.locator('button').filter({ hasText: /تأكيد|دفع/ }).last();
+      const confirmPay = page.getByRole('button', { name: /نعم، تسجيل الدفعة/i });
       await expect(confirmPay).toBeVisible({ timeout: 5_000 });
       await confirmPay.click();
 

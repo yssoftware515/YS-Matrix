@@ -38,15 +38,14 @@ test.describe('Inventory CRUD: create → edit → deactivate → low-stock', ()
     await expect(modalTitle).toBeVisible({ timeout: 5_000 });
 
     // 5. Fill form — select vehicle type
-    await page.locator('select, [role="combobox"]').filter({ hasText: /نوع المنتج/ }).first().click();
-    await page.locator('option, [role="option"]').filter({ hasText: /دراجة|MOTORCYCLE/ }).first().click();
+    await page.getByLabel('نوع المنتج').selectOption({ label: 'دراجة' });
 
     // 6. Fill form fields
-    await page.getByPlaceholder(/الماركة|brand/i).fill(brand);
-    await page.getByPlaceholder(/الموديل|model/i).fill(model);
-    await page.getByPlaceholder(/سعر التكلفة|cost/i).fill('500000');
-    await page.getByPlaceholder(/سعر البيع|selling/i).fill('700000');
-    await page.getByPlaceholder(/الكمية|quantity/i).fill('1');
+    await page.getByPlaceholder('باجاج').fill(brand);
+    await page.getByPlaceholder('بوكسر 150').fill(model);
+    await page.getByPlaceholder('850000').fill('500000');
+    await page.getByPlaceholder('1100000').fill('700000');
+    await page.locator('input[placeholder="1"]').fill('1');
 
     // 7. Submit
     const saveBtn = page.getByRole('button', { name: /^حفظ$/i });
@@ -71,7 +70,7 @@ test.describe('Inventory CRUD: create → edit → deactivate → low-stock', ()
     const editModal = page.locator('span').filter({ hasText: /^تعديل المنتج$/ }).first();
     await expect(editModal).toBeVisible({ timeout: 5_000 });
 
-    const modelInput = page.locator('input').filter({ hasText: model }).first();
+    const modelInput = page.getByLabel('الموديل').first();
     await modelInput.clear();
     await modelInput.fill(editedModel);
 
@@ -109,7 +108,6 @@ test.describe('Inventory CRUD: create → edit → deactivate → low-stock', ()
     await expect(page.locator('tr').filter({ hasText: brand })).toHaveCount(0, { timeout: 10_000 });
 
     // 14. Check low-stock view exists (inline KPI)
-    const lowStockPanel = page.locator('text=انخفاض المخزون').first();
     // Low stock panel may or may not be visible depending on data — just check page loaded
     await expect(page.locator('text=المخزون').first()).toBeVisible({ timeout: 5_000 });
   });

@@ -93,7 +93,7 @@ test.describe('Invoice view: navigate → verify fields → print button', () =>
     await expect(printBtn).toBeVisible({ timeout: 5_000 });
 
     // 8. Verify back button exists
-    const backBtn = page.getByRole('link', { name: /رجوع/i }).first();
+    const backBtn = page.getByRole('button', { name: /رجوع/i }).first();
     const hasBackBtn = await backBtn.isVisible().catch(() => false);
     expect(hasBackBtn, 'Back button should be visible').toBe(true);
   });

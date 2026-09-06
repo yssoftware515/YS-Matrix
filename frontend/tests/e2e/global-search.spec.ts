@@ -63,7 +63,7 @@ test.describe('Global Search: trigger → search → navigate', () => {
     await expect(page).toHaveURL(/\/dashboard/);
 
     // 1. On mobile, click the search icon button in the navbar
-    const searchIcon = page.locator('button').filter({ has: page.locator('svg') }).last();
+    const searchIcon = page.locator('button.flex.md\\:hidden').first();
     await searchIcon.click();
 
     // 2. Wait for search modal
