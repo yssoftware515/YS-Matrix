@@ -15,7 +15,7 @@ const assert = require('node:assert');
 // it before the harness would cache undefined secrets and break login.
 const { startServer, stopServer, api } = require('../helpers/harness');
 const { generateTokens } = require('../../src/config/jwt');
-const { seedAll, tokenFor, IDS } = require('../helpers/fixtures');
+const { seedAll, tokenFor, IDS , unlockAll} = require('../helpers/fixtures');
 
 let base;
 let ownerA, ownerE, ownerW;
@@ -29,6 +29,7 @@ test.before(async () => {
 });
 
 test.after(async () => {
+  await unlockAll();
   await stopServer();
 });
 

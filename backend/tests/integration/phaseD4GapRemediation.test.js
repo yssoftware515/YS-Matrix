@@ -17,7 +17,7 @@ const assert = require('node:assert');
 const crypto = require('node:crypto');
 
 const { startServer, stopServer, api } = require('../helpers/harness');
-const { seedAll, tokenFor, PASSWORD, IDS } = require('../helpers/fixtures');
+const { seedAll, tokenFor, PASSWORD, IDS , unlockAll} = require('../helpers/fixtures');
 const { baseClient: db } = require('../../src/config/database');
 
 const cuid = () => `c${crypto.randomBytes(12).toString('hex')}`;
@@ -34,6 +34,7 @@ test.before(async () => {
 });
 
 test.after(async () => {
+  await unlockAll();
   await stopServer();
 });
 

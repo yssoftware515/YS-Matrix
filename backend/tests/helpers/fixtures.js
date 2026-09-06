@@ -9,11 +9,17 @@
 // ============================================================
 
 const bcrypt = require('bcryptjs');
+const speakeasy = require('speakeasy');
 const { baseClient: db } = require('../../src/config/database');
 const { seedAuthorization } = require('../../src/utils/seed.authorization');
+const { encrypt } = require('../../src/utils/encryption');
 
 const PASSWORD = 'Phase0#Test2026!';
 const PASSWORD_HASH = bcrypt.hashSync(PASSWORD, 4);
+
+// Fixed TOTP secret for test SUPER_ADMIN — allows tokenFor() to
+// generate valid codes programmatically without enrolling each time.
+const SA_TOTP_SECRET = 'JBSWY3DPEHPK3PXP';
 
 const DAY = 24 * 60 * 60 * 1000;
 const future = (d) => new Date(Date.now() + d * DAY).toISOString();
@@ -40,7 +46,9 @@ const IDS = {
 
 async function seedAll() {
   // Serialize concurrent test processes (node --test runs files in
-  // parallel): advisory lock scoped to this session.
+  // parallel): advisory lock scoped to this session. The lock is
+  // HELD for the entire test lifecycle (released by unlockAll())
+  // so a parallel file cannot truncate tables mid-test.
   await db.$executeRawUnsafe('SELECT pg_advisory_lock(424242)');
   try {
     // FK-safe full wipe of the public schema (except Prisma's own
@@ -74,7 +82,14 @@ async function seedAll() {
 
     await db.user.createMany({
       data: [
-        { id: IDS.sa,    showroom_id: IDS.sys,       name: 'Test Super Admin', email: 'sa@test.local',        password_hash: PASSWORD_HASH, role: 'SUPER_ADMIN', is_active: true },
+        {
+          id: IDS.sa, showroom_id: IDS.sys, name: 'Test Super Admin',
+          email: 'sa@test.local', password_hash: PASSWORD_HASH,
+          role: 'SUPER_ADMIN', is_active: true,
+          totp_secret_encrypted: encrypt(SA_TOTP_SECRET),
+          totp_enabled: true,
+          backup_codes: [],
+        },
         { id: IDS.ownerA, showroom_id: IDS.showroomA, name: 'Owner A',          email: 'owner-a@test.local',   password_hash: PASSWORD_HASH, role: 'OWNER',       is_active: true },
         { id: IDS.staffA, showroom_id: IDS.showroomA, name: 'Staff A',          email: 'staff-a@test.local',   password_hash: PASSWORD_HASH, role: 'STAFF',       is_active: true },
         { id: IDS.ownerB, showroom_id: IDS.showroomB, name: 'Owner B',          email: 'owner-b@test.local',   password_hash: PASSWORD_HASH, role: 'OWNER',       is_active: true },
@@ -132,9 +147,15 @@ async function seedAll() {
         ] },
       },
     });
-  } finally {
+  } catch (err) {
     await db.$executeRawUnsafe('SELECT pg_advisory_unlock(424242)');
+    throw err;
   }
+  // Lock held until unlockAll() — prevents parallel truncate mid-test.
+}
+
+async function unlockAll() {
+  await db.$executeRawUnsafe('SELECT pg_advisory_unlock(424242)');
 }
 
 async function tokenFor(base, email) {
@@ -145,7 +166,33 @@ async function tokenFor(base, email) {
   });
   const json = await res.json();
   if (!res.ok) throw new Error(`login(${email}) failed: ${res.status} ${JSON.stringify(json)}`);
-  return json.data.accessToken;
+
+  const { data } = json;
+
+  // SUPER_ADMIN login returns tempToken + mfa_required instead of
+  // full session tokens. Complete the MFA flow programmatically:
+  // 1. Generate a TOTP code from the known test secret
+  // 2. Call /mfa/verify to exchange tempToken for accessToken
+  if (data.mfa_required && data.tempToken) {
+    const mfaCode = speakeasy.totp({
+      secret: SA_TOTP_SECRET,
+      encoding: 'base32',
+    });
+
+    const mfaRes = await fetch(`${base}/api/v1/mfa/verify`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${data.tempToken}`,
+      },
+      body: JSON.stringify({ code: mfaCode }),
+    });
+    const mfaJson = await mfaRes.json();
+    if (!mfaRes.ok) throw new Error(`mfa/verify(${email}) failed: ${mfaRes.status} ${JSON.stringify(mfaJson)}`);
+    return mfaJson.data.accessToken;
+  }
+
+  return data.accessToken;
 }
 
-module.exports = { seedAll, tokenFor, PASSWORD, IDS };
+module.exports = { seedAll, unlockAll, tokenFor, PASSWORD, IDS, SA_TOTP_SECRET };

@@ -10,7 +10,7 @@ const express = require('express');
 const http = require('http');
 
 const { startServer, stopServer, api, db } = require('../helpers/harness');
-const { seedAll, tokenFor, IDS } = require('../helpers/fixtures');
+const { seedAll, tokenFor, IDS , unlockAll} = require('../helpers/fixtures');
 const { PERMISSIONS, PROFILE_DEFINITIONS } = require('../../src/services/permissionCatalog');
 const { validateProfileAssignment } = require('../../src/services/authorization.service');
 const { authenticate } = require('../../src/middleware/auth.middleware');
@@ -41,6 +41,7 @@ test.before(async () => {
 });
 
 test.after(async () => {
+  await unlockAll();
   await stopServer();
 });
 

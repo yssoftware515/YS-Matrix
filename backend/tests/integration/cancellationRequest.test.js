@@ -15,7 +15,7 @@ const test   = require('node:test');
 const assert = require('node:assert');
 
 const { startServer, stopServer, api } = require('../helpers/harness');
-const { seedAll, tokenFor, IDS } = require('../helpers/fixtures');
+const { seedAll, tokenFor, IDS , unlockAll} = require('../helpers/fixtures');
 const { baseClient: db } = require('../../src/config/database');
 const lifecycleService = require('../../src/services/subscription.lifecycle.service');
 
@@ -37,6 +37,7 @@ test.before(async () => {
 });
 
 test.after(async () => {
+  await unlockAll();
   await stopServer();
 });
 

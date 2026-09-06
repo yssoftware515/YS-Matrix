@@ -15,7 +15,7 @@ const test   = require('node:test');
 const assert = require('node:assert');
 
 const { startServer, stopServer, api } = require('../helpers/harness');
-const { seedAll, tokenFor, PASSWORD, IDS } = require('../helpers/fixtures');
+const { seedAll, tokenFor, PASSWORD, IDS , unlockAll} = require('../helpers/fixtures');
 const { baseClient: db } = require('../../src/config/database');
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -50,6 +50,7 @@ test.before(async () => {
 });
 
 test.after(async () => {
+  await unlockAll();
   await stopServer();
 });
 

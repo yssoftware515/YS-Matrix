@@ -29,8 +29,9 @@ const assert = require('node:assert');
 const crypto = require('node:crypto');
 
 const { startServer, stopServer, api } = require('../helpers/harness');
-const { seedAll, PASSWORD, IDS } = require('../helpers/fixtures');
+const { seedAll, PASSWORD, IDS , unlockAll, SA_TOTP_SECRET} = require('../helpers/fixtures');
 const { baseClient: db } = require('../../src/config/database');
+const speakeasy = require('speakeasy');
 
 const sha256 = (s) => crypto.createHash('sha256').update(s).digest('hex');
 const future = (ms = 3600_000) => new Date(Date.now() + ms);
@@ -44,13 +45,28 @@ test.before(async () => {
 });
 
 test.after(async () => {
+  await unlockAll();
   await stopServer();
 });
 
 async function login(email = 'owner-a@test.local', password = PASSWORD) {
   const res = await api(base, 'POST', '/auth/login', { body: { email, password } });
   assert.strictEqual(res.status, 200, `login(${email}) should succeed`);
-  return res.body.data;
+  const data = res.body.data;
+
+  // SUPER_ADMIN login returns tempToken + mfa_required. Complete
+  // the MFA flow programmatically so callers get a real accessToken.
+  if (data.mfa_required && data.tempToken) {
+    const mfaCode = speakeasy.totp({ secret: SA_TOTP_SECRET, encoding: 'base32' });
+    const mfaRes = await api(base, 'POST', '/mfa/verify', {
+      body: { code: mfaCode },
+      token: data.tempToken,
+    });
+    assert.strictEqual(mfaRes.status, 200, `mfa/verify(${email}) should succeed`);
+    return mfaRes.body.data;
+  }
+
+  return data;
 }
 
 const refresh = (refreshToken) =>

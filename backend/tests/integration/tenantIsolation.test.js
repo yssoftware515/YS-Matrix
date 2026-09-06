@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 
 const { startServer, stopServer, api, db } = require('../helpers/harness');
-const { seedAll, tokenFor, IDS } = require('../helpers/fixtures');
+const { seedAll, tokenFor, IDS , unlockAll} = require('../helpers/fixtures');
 
 let base;
 let ownerA, staffA, ownerB, staffB, sa;
@@ -20,6 +20,7 @@ test.before(async () => {
 });
 
 test.after(async () => {
+  await unlockAll();
   await stopServer();
 });
 

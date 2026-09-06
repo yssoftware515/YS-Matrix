@@ -23,7 +23,7 @@ const assert = require('node:assert');
 const crypto = require('node:crypto');
 
 const { startServer, stopServer, api } = require('../helpers/harness');
-const { seedAll, tokenFor, PASSWORD, IDS } = require('../helpers/fixtures');
+const { seedAll, tokenFor, PASSWORD, IDS , unlockAll} = require('../helpers/fixtures');
 const { seedPlans } = require('../../src/utils/seed.plans');
 const { getDateRange } = require('../../src/utils/dateRange');
 const { baseClient: db } = require('../../src/config/database');
@@ -46,6 +46,7 @@ test.before(async () => {
 });
 
 test.after(async () => {
+  await unlockAll();
   await stopServer();
 });
 

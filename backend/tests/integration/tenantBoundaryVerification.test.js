@@ -32,7 +32,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 
 const { startServer, stopServer, api, db } = require('../helpers/harness');
-const { seedAll, tokenFor, IDS } = require('../helpers/fixtures');
+const { seedAll, tokenFor, IDS , unlockAll} = require('../helpers/fixtures');
 const { seedPlans } = require('../../src/utils/seed.plans');
 
 // DB-state assertions must use the UNscoped base client — the scoped
@@ -116,6 +116,7 @@ test.before(async () => {
 });
 
 test.after(async () => {
+  await unlockAll();
   await stopServer();
 });
 

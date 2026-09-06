@@ -7,7 +7,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const { startServer, stopServer, api } = require('../helpers/harness');
-const { seedAll, tokenFor, PASSWORD, IDS } = require('../helpers/fixtures');
+const { seedAll, tokenFor, PASSWORD, IDS , unlockAll} = require('../helpers/fixtures');
 
 let base;
 let saToken, ownerAToken, staffAToken;
@@ -20,7 +20,8 @@ test.before(async () => {
   staffAToken = await tokenFor(base, 'staff-a@test.local');
 });
 
-test.after(async () => { await stopServer(); });
+test.after(async () => { await unlockAll();
+  await stopServer(); });
 
 // ─── PRINT / INVOICE / RECEIPT ────────────────────────────────
 

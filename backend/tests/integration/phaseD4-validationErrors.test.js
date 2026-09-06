@@ -11,7 +11,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 const crypto = require('node:crypto');
 const { startServer, stopServer, api } = require('../helpers/harness');
-const { seedAll, tokenFor, PASSWORD, IDS } = require('../helpers/fixtures');
+const { seedAll, tokenFor, PASSWORD, IDS , unlockAll} = require('../helpers/fixtures');
 
 const cuid = () => `c${crypto.randomBytes(12).toString('hex')}`;
 
@@ -26,7 +26,8 @@ test.before(async () => {
   staffAToken = await tokenFor(base, 'staff-a@test.local');
 });
 
-test.after(async () => { await stopServer(); });
+test.after(async () => { await unlockAll();
+  await stopServer(); });
 
 // ─── AUTH FORMS ───────────────────────────────────────────────
 
