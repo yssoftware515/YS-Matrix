@@ -157,3 +157,99 @@ jobs:
 
       - name: Integration Tests
         run: node --test --test-concurrency=1 "tests/integration/*.test.js"
+
+  # ── Frontend: End-to-End (Playwright) ────────────────────────
+  frontend-e2e:
+    runs-on: ubuntu-latest
+    needs: [frontend, backend-integration]
+    defaults:
+      run:
+        working-directory: frontend
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ys_matrix_test
+        ports:
+          - 5434:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    env:
+      NODE_ENV: test
+      BASE_URL: http://localhost:3000
+      API_URL: http://localhost:5000/api/v1
+      E2E_EMAIL: owner@demo.com
+      E2E_PASSWORD: "Demo@Owner2024!"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # ── Backend setup (for Playwright webServer) ──────────────
+      - name: Setup Backend
+        working-directory: backend
+        run: |
+          npm ci
+          JWT_ACCESS=$(openssl rand -hex 32)
+          JWT_REFRESH=$(openssl rand -hex 32)
+          CRON=$(openssl rand -hex 32)
+          MFA_KEY=$(openssl rand -hex 32)
+          DB_URL="postgresql://postgres:postgres@localhost:5434/ys_matrix_test"
+          printf '%s\n' \
+            "NODE_ENV=test" \
+            "DATABASE_URL=$DB_URL" \
+            "JWT_ACCESS_SECRET=$JWT_ACCESS" \
+            "JWT_REFRESH_SECRET=$JWT_REFRESH" \
+            "JWT_ACCESS_EXPIRES=15m" \
+            "JWT_REFRESH_EXPIRES=7d" \
+            "CRON_SECRET=$CRON" \
+            "BCRYPT_ROUNDS=4" \
+            "API_VERSION=v1" \
+            "PORT=5000" \
+            "SYSTEM_SHOWROOM_ID=sh-sys" \
+            "RATE_LIMIT_SUPERADMIN_MAX=500" \
+            "RATE_LIMIT_SENSITIVE_MAX=100" \
+            "RATE_LIMIT_AUTH_MAX=200" \
+            "RATE_LIMIT_FORGOT_MAX=100" \
+            "RATE_LIMIT_REGISTER_MAX=100" \
+            "RATE_LIMIT_MAX=10000" \
+            "RATE_LIMIT_WINDOW_MS=60000" \
+            "EMAIL_TRANSPORT=console" \
+            "EMAIL_SIMULATE_FAILURE=false" \
+            "MFA_ENCRYPTION_KEY=$MFA_KEY" \
+            > .env.test
+          echo "DATABASE_URL=$DB_URL" >> "$GITHUB_ENV"
+          npx prisma generate
+          npx prisma migrate deploy
+          npm run db:seed
+
+      # ── Frontend setup ───────────────────────────────────────
+      - name: Setup Frontend
+        run: npm ci
+
+      - name: Build Frontend
+        run: npm run build
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
+
+      # ── Run E2E tests ────────────────────────────────────────
+      - name: Run Playwright Tests
+        run: npx playwright test
+
+      - name: Upload Playwright Report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          retention-days: 7

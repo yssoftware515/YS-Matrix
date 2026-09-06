@@ -19,9 +19,9 @@ export default defineConfig({
       cwd: '../backend',
       port: 5000,
       timeout: 30_000,
-      reuseExistingServer: false,
+      reuseExistingServer: !!process.env.CI,
       env: {
-        NODE_ENV: 'development',
+        NODE_ENV: process.env.CI ? 'test' : 'development',
       },
     },
     {
