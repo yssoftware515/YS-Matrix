@@ -265,7 +265,7 @@ jobs:
 
       # ── Run E2E tests ────────────────────────────────────────
       - name: Run Playwright Tests
-        run: npx playwright test --reporter=list,json
+        run: npx playwright test --reporter=list,json=test-results.json
 
       - name: Upload Playwright Report
         if: always()
@@ -275,13 +275,19 @@ jobs:
           path: |
             frontend/playwright-report/
             frontend/test-results/
+            frontend/test-results.json
           retention-days: 7
 
       - name: Print test summary
-        if: failure()
+        if: always()
         run: |
-          echo "=== PLAYWRIGHT TEST RESULTS ==="
-          if [ -f test-results/.last-run.json ]; then
-            cat test-results/.last-run.json
+          echo "## Playwright Results" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          if [ -f test-results.json ]; then
+            cat test-results.json >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No test-results.json found"
+            echo "Files in .:" >> "$GITHUB_STEP_SUMMARY"
+            ls -la >> "$GITHUB_STEP_SUMMARY"
           fi
-          echo "=== DONE ==="
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
