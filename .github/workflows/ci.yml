@@ -265,12 +265,23 @@ jobs:
 
       # ── Run E2E tests ────────────────────────────────────────
       - name: Run Playwright Tests
-        run: npx playwright test
+        run: npx playwright test --reporter=list,json
 
       - name: Upload Playwright Report
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
-          path: frontend/playwright-report/
+          name: playwright-results
+          path: |
+            frontend/playwright-report/
+            frontend/test-results/
           retention-days: 7
+
+      - name: Print test summary
+        if: failure()
+        run: |
+          echo "=== PLAYWRIGHT TEST RESULTS ==="
+          if [ -f test-results/.last-run.json ]; then
+            cat test-results/.last-run.json
+          fi
+          echo "=== DONE ==="
