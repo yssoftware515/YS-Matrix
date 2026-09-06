@@ -54,6 +54,7 @@ jobs:
           JWT_ACCESS=$(openssl rand -hex 32)
           JWT_REFRESH=$(openssl rand -hex 32)
           CRON=$(openssl rand -hex 32)
+          MFA_KEY=$(openssl rand -hex 32)
           printf '%s\n' \
             "NODE_ENV=test" \
             "DATABASE_URL=postgresql://postgres:postgres@localhost:5434/ys_matrix_test" \
@@ -75,6 +76,7 @@ jobs:
             "RATE_LIMIT_WINDOW_MS=60000" \
             "EMAIL_TRANSPORT=console" \
             "EMAIL_SIMULATE_FAILURE=false" \
+            "MFA_ENCRYPTION_KEY=$MFA_KEY" \
             > .env.test
 
       - name: Prisma Generate
@@ -122,6 +124,7 @@ jobs:
           JWT_ACCESS=$(openssl rand -hex 32)
           JWT_REFRESH=$(openssl rand -hex 32)
           CRON=$(openssl rand -hex 32)
+          MFA_KEY=$(openssl rand -hex 32)
           DB_URL="postgresql://postgres:postgres@localhost:5434/ys_matrix_test"
           printf '%s\n' \
             "NODE_ENV=test" \
@@ -144,6 +147,7 @@ jobs:
             "RATE_LIMIT_WINDOW_MS=60000" \
             "EMAIL_TRANSPORT=console" \
             "EMAIL_SIMULATE_FAILURE=false" \
+            "MFA_ENCRYPTION_KEY=$MFA_KEY" \
             > .env.test
           # Prisma CLI auto-loads .env (not .env.test) for DATABASE_URL.
           # Export it via $GITHUB_ENV so prisma migrate deploy can connect.
