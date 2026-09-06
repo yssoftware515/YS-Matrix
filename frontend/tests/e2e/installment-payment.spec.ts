@@ -47,7 +47,7 @@ test.describe('Installment payment: create sale → pay installment → verify',
 
     // 6. Select first item
     const firstItem = page.locator('.matrix-panel button').filter({
-      /باجاج|هوندا|mot|car|باج/i,
+      hasText: /باجاج|هوندا|mot|car|باج/i,
     }).first();
     await expect(firstItem).toBeVisible({ timeout: 10_000 });
     await firstItem.click();

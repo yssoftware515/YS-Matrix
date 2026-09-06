@@ -42,7 +42,7 @@ test.describe('Invoice view: navigate → verify fields → print button', () =>
       await page.waitForTimeout(2_000);
 
       const firstItem = page.locator('.matrix-panel button').filter({
-        /باجاج|هوندا|mot|car|باج/i,
+        hasText: /باجاج|هوندا|mot|car|باج/i,
       }).first();
       await expect(firstItem).toBeVisible({ timeout: 10_000 });
       await firstItem.click();

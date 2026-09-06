@@ -37,7 +37,7 @@ test.describe('Global Search: trigger → search → navigate', () => {
 
     // 5. Verify at least one result item exists
     const resultItem = page.locator('.matrix-panel button, [role="option"]').filter({
-      /باجاج|بوكسر/i,
+      hasText: /باجاج|بوكسر/i,
     }).first();
     const hasResults = await resultItem.isVisible().catch(() => false);
     expect(hasResults, 'Search should find inventory items matching باجاج').toBe(true);
