@@ -36,6 +36,17 @@ const notificationService = require('../../src/services/notification.service');
 
 const REAL_PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 const DAY = 24 * 60 * 60 * 1000;
+
+// Poll until a notification matching `where` appears or timeout.
+const waitForNotification = async (where, { timeout = 3000, interval = 50 } = {}) => {
+  const start = Date.now();
+  while (Date.now() - start < timeout) {
+    const found = await db.notification.findFirst({ where });
+    if (found) return found;
+    await new Promise((r) => setTimeout(r, interval));
+  }
+  return null;
+};
 // The scan compares against the UTC-midnight horizon, so candidate
 // expiries are anchored to UTC midnight (exact n days ahead).
 const daysAhead = (n) =>
@@ -233,7 +244,8 @@ test('payment lifecycle: rejection never activates; corrected proof goes through
     where: { showroom_id: IDS.showroomA, type: 'SUBSCRIPTION_ACTIVATED' },
   });
   assert.ok(!activatedNotif, 'rejection must never produce an activation notification');
-  assert.ok(await db.notification.findFirst({ where: { showroom_id: IDS.showroomA, type: 'PAYMENT_REJECTED' } }));
+  const rejectedNotif = await waitForNotification({ showroom_id: IDS.showroomA, type: 'PAYMENT_REJECTED' });
+  assert.ok(rejectedNotif, 'rejection must produce a PAYMENT_REJECTED notification');
 
   // The processed payment is immutable — corrected proof must NOT
   // be attachable to it.
@@ -256,7 +268,8 @@ test('payment lifecycle: rejection never activates; corrected proof goes through
   });
   assert.strictEqual(approve.status, 200);
   assert.strictEqual(approve.body.data.subscription.status, 'ACTIVE');
-  assert.ok(await db.notification.findFirst({ where: { showroom_id: IDS.showroomA, type: 'SUBSCRIPTION_ACTIVATED' } }));
+  const activatedNotifAfterApprove = await waitForNotification({ showroom_id: IDS.showroomA, type: 'SUBSCRIPTION_ACTIVATED' });
+  assert.ok(activatedNotifAfterApprove, 'approval must produce a SUBSCRIPTION_ACTIVATED notification');
 
   // Owner A now sees ERP access + derived ACTIVE status.
   const erp = await api(base, 'GET', '/customers', { token: ownerAToken });
