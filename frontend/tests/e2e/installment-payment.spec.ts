@@ -58,15 +58,15 @@ test.describe('Installment payment: create sale → pay installment → verify',
     await installmentBtn.click();
 
     // 8. Fill installment fields
-    const downPaymentInput = page.getByLabel('الدفعة الأولى (المقدمة)').first();
+    const downPaymentInput = page.locator('label:has-text("الدفعة الأولى") + input');
     await expect(downPaymentInput).toBeVisible({ timeout: 5_000 });
     await downPaymentInput.fill('200000');
 
-    const monthlyInput = page.getByLabel('قيمة القسط الشهري').first();
+    const monthlyInput = page.locator('label:has-text("قيمة القسط") + input');
     await expect(monthlyInput).toBeVisible({ timeout: 5_000 });
     await monthlyInput.fill('100000');
 
-    const monthsInput = page.getByLabel('عدد الأشهر').first();
+    const monthsInput = page.locator('label:has-text("عدد الأشهر") + input');
     await expect(monthsInput).toBeVisible({ timeout: 5_000 });
     await monthsInput.fill('2');
 

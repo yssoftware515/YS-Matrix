@@ -64,7 +64,7 @@ test.describe('Customer CRUD: create → edit → deactivate → reactivate', ()
     const editModal = page.locator('span').filter({ hasText: /^تعديل بيانات العميل$/ }).first();
     await expect(editModal).toBeVisible({ timeout: 5_000 });
 
-    const nameInput = page.getByLabel('اسم العميل').first();
+    const nameInput = page.getByPlaceholder('محمود سيد').first();
     await nameInput.clear();
     await nameInput.fill(editedName);
 

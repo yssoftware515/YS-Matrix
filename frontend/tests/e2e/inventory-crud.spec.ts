@@ -38,7 +38,8 @@ test.describe('Inventory CRUD: create → edit → deactivate → low-stock', ()
     await expect(modalTitle).toBeVisible({ timeout: 5_000 });
 
     // 5. Fill form — select vehicle type
-    await page.getByLabel('نوع المنتج').selectOption({ label: 'دراجة' });
+    const selectEl = page.locator('label:has-text("نوع المنتج") + select');
+    await selectEl.selectOption({ label: 'دراجة' });
 
     // 6. Fill form fields
     await page.getByPlaceholder('باجاج').fill(brand);
@@ -70,7 +71,7 @@ test.describe('Inventory CRUD: create → edit → deactivate → low-stock', ()
     const editModal = page.locator('span').filter({ hasText: /^تعديل المنتج$/ }).first();
     await expect(editModal).toBeVisible({ timeout: 5_000 });
 
-    const modelInput = page.getByLabel('الموديل').first();
+    const modelInput = page.getByPlaceholder('بوكسر 150').first();
     await modelInput.clear();
     await modelInput.fill(editedModel);
 
