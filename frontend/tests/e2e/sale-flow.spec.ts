@@ -20,6 +20,9 @@ test.describe('Sales flow: login → cash sale → invoice', () => {
   test('creates a cash sale and verifies the new invoice', async ({ page }) => {
     test.setTimeout(90_000);
 
+    // THROWAWAY: deliberately fail to verify CI catches regressions
+    expect(false, 'Deliberate failure for CI verification').toBe(true);
+
     // 1. Login
     await login(page);
     await expect(page).toHaveURL(/\/dashboard/);
