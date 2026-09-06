@@ -199,14 +199,18 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       # ── Backend setup (for Playwright webServer) ──────────────
-      - name: Setup Backend
+      - name: Install backend deps
+        working-directory: backend
+        run: npm ci
+
+      - name: Generate .env.test
         working-directory: backend
         run: |
-          npm ci
           JWT_ACCESS=$(openssl rand -hex 32)
           JWT_REFRESH=$(openssl rand -hex 32)
           CRON=$(openssl rand -hex 32)
           MFA_KEY=$(openssl rand -hex 32)
+          SA_PWD=$(openssl rand -base64 18 | tr -d '=/+' | head -c 16)
           DB_URL="postgresql://postgres:postgres@localhost:5434/ys_matrix_test"
           printf '%s\n' \
             "NODE_ENV=test" \
@@ -230,11 +234,23 @@ jobs:
             "EMAIL_TRANSPORT=console" \
             "EMAIL_SIMULATE_FAILURE=false" \
             "MFA_ENCRYPTION_KEY=$MFA_KEY" \
+            "SUPER_ADMIN_EMAIL=sa@test.local" \
+            "SUPER_ADMIN_PASSWORD=$SA_PWD" \
             > .env.test
           echo "DATABASE_URL=$DB_URL" >> "$GITHUB_ENV"
-          npx prisma generate
-          npx prisma migrate deploy
-          npm run db:seed
+          echo "E2E_SA_PASSWORD=$SA_PWD" >> "$GITHUB_ENV"
+
+      - name: Prisma Generate
+        working-directory: backend
+        run: npx prisma generate
+
+      - name: Prisma Migrate
+        working-directory: backend
+        run: npx prisma migrate deploy
+
+      - name: Seed database
+        working-directory: backend
+        run: npm run db:seed
 
       # ── Frontend setup ───────────────────────────────────────
       - name: Setup Frontend
