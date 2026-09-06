@@ -15,15 +15,14 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: 'node src/index.js',
+      command:
+        "node -e \"require('./src/config/env').loadTestEnv();" +
+        "process.env.NODE_ENV='development';" +
+        "require('./src/index')\"",
       cwd: '../backend',
       port: 5000,
       timeout: 30_000,
       reuseExistingServer: !!process.env.CI,
-      env: {
-        ...process.env,
-        NODE_ENV: process.env.CI ? 'test' : 'development',
-      },
     },
     {
       command: 'npx next start -p 3000',
