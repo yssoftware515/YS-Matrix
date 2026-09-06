@@ -109,35 +109,41 @@ const getRevenueChart = async ({ showroomId, query }) => {
   const { range = 'month', group_by = 'day' } = query;
   const dateRange = getDateRange({ range });
 
-  const sales = await prisma.sale.findMany({
-    where: { showroom_id: showroomId, sold_at: dateRange, status: { not: 'CANCELLED' } },
-    select: { sold_at: true, total: true, profit: true, sale_type: true },
-    orderBy: { sold_at: 'asc' },
-  });
+  const trunc = group_by === 'month' ? 'month' : 'day';
+  const rows = await prisma.$queryRawUnsafe(`
+    SELECT
+      date_trunc($1, sold_at) AS period,
+      COALESCE(SUM(total), 0)       AS revenue,
+      COALESCE(SUM(profit), 0)      AS profit,
+      COUNT(*)::int                 AS count,
+      COALESCE(SUM(CASE WHEN sale_type = 'CASH' THEN total ELSE 0 END), 0) AS cash,
+      COALESCE(SUM(CASE WHEN sale_type != 'CASH' THEN total ELSE 0 END), 0) AS installment
+    FROM sales
+    WHERE showroom_id = $2
+      AND sold_at >= $3
+      AND sold_at <  $4
+      AND status != 'CANCELLED'
+    GROUP BY date_trunc($1, sold_at)
+    ORDER BY period ASC
+  `, trunc, showroomId, dateRange.gte, dateRange.lte);
 
-  const grouped = {};
-  sales.forEach((sale) => {
-    const date = new Date(sale.sold_at);
+  const chartData = rows.map((r) => {
+    const date = new Date(r.period);
     const key  = group_by === 'month'
       ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
       : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-
-    if (!grouped[key]) {
-      grouped[key] = { date: key, revenue: 0, profit: 0, count: 0, cash: 0, installment: 0 };
-    }
-    grouped[key].revenue += parseFloat(sale.total);
-    grouped[key].profit  += parseFloat(sale.profit);
-    grouped[key].count   += 1;
-    if (sale.sale_type === 'CASH') grouped[key].cash        += parseFloat(sale.total);
-    else                           grouped[key].installment += parseFloat(sale.total);
+    const revenue = parseFloat(r.revenue);
+    const profit  = parseFloat(r.profit);
+    return {
+      date: key,
+      revenue,
+      profit,
+      count: r.count,
+      cash:        parseFloat(r.cash),
+      installment: parseFloat(r.installment),
+      profit_margin: revenue > 0 ? parseFloat(((profit / revenue) * 100).toFixed(1)) : 0,
+    };
   });
-
-  const chartData = Object.values(grouped).map((d) => ({
-    ...d,
-    revenue:       parseFloat(d.revenue.toFixed(2)),
-    profit:        parseFloat(d.profit.toFixed(2)),
-    profit_margin: d.revenue > 0 ? parseFloat(((d.profit / d.revenue) * 100).toFixed(1)) : 0,
-  }));
 
   return { range, group_by, data: chartData };
 };
@@ -237,35 +243,34 @@ const getInventoryAnalytics = async ({ showroomId }) => {
 const getProfitBreakdown = async ({ showroomId, query }) => {
   const dateRange = getDateRange(query);
 
-  const sales = await prisma.saleItem.findMany({
-    where: {
-      sale: { showroom_id: showroomId, sold_at: dateRange, status: { not: 'CANCELLED' } },
-    },
-    select: {
-      total_price: true,
-      profit: true,
-      quantity: true,
-      inventory: { select: { vehicle_type: true } },
-    },
-  });
+  const rows = await prisma.$queryRawUnsafe(`
+    SELECT
+      COALESCE(i.vehicle_type, 'OTHER') AS type,
+      COALESCE(SUM(si.total_price), 0)  AS revenue,
+      COALESCE(SUM(si.profit), 0)       AS profit,
+      COALESCE(SUM(si.quantity), 0)::int AS count
+    FROM sale_items si
+    JOIN sales s ON s.id = si.sale_id
+    LEFT JOIN inventory i ON i.id = si.inventory_id
+    WHERE s.showroom_id = $1
+      AND s.sold_at >= $2
+      AND s.sold_at <  $3
+      AND s.status != 'CANCELLED'
+    GROUP BY COALESCE(i.vehicle_type, 'OTHER')
+    ORDER BY revenue DESC
+  `, showroomId, dateRange.gte, dateRange.lte);
 
-  const breakdown = {};
-  sales.forEach((item) => {
-    const type = item.inventory?.vehicle_type || 'OTHER';
-    if (!breakdown[type]) breakdown[type] = { type, revenue: 0, profit: 0, count: 0 };
-    breakdown[type].revenue += parseFloat(item.total_price);
-    breakdown[type].profit  += parseFloat(item.profit);
-    breakdown[type].count   += item.quantity;
+  return rows.map((r) => {
+    const revenue = parseFloat(r.revenue);
+    const profit  = parseFloat(r.profit);
+    return {
+      type: r.type,
+      revenue,
+      profit,
+      count: r.count,
+      profit_margin: revenue > 0 ? parseFloat(((profit / revenue) * 100).toFixed(1)) : 0,
+    };
   });
-
-  return Object.values(breakdown).map((b) => ({
-    ...b,
-    revenue:       parseFloat(b.revenue.toFixed(2)),
-    profit:        parseFloat(b.profit.toFixed(2)),
-    profit_margin: b.revenue > 0
-      ? parseFloat(((b.profit / b.revenue) * 100).toFixed(1))
-      : 0,
-  }));
 };
 
 // ─────────────────────────────────────────
@@ -278,10 +283,19 @@ const getMonthlyComparison = async ({ showroomId, query }) => {
   startDate.setDate(1);
   startDate.setHours(0, 0, 0, 0);
 
-  const sales = await prisma.sale.findMany({
-    where: { showroom_id: showroomId, sold_at: { gte: startDate }, status: { not: 'CANCELLED' } },
-    select: { sold_at: true, total: true, profit: true },
-  });
+  const rows = await prisma.$queryRawUnsafe(`
+    SELECT
+      to_char(date_trunc('month', sold_at), 'YYYY-MM') AS month,
+      COALESCE(SUM(total), 0)  AS revenue,
+      COALESCE(SUM(profit), 0) AS profit,
+      COUNT(*)::int            AS count
+    FROM sales
+    WHERE showroom_id = $1
+      AND sold_at >= $2
+      AND status != 'CANCELLED'
+    GROUP BY date_trunc('month', sold_at)
+    ORDER BY month ASC
+  `, showroomId, startDate);
 
   // Pre-fill all months with zeros
   const grouped = {};
@@ -292,23 +306,16 @@ const getMonthlyComparison = async ({ showroomId, query }) => {
     grouped[key] = { month: key, revenue: 0, profit: 0, count: 0 };
   }
 
-  sales.forEach((sale) => {
-    const d   = new Date(sale.sold_at);
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    if (grouped[key]) {
-      grouped[key].revenue += parseFloat(sale.total);
-      grouped[key].profit  += parseFloat(sale.profit);
-      grouped[key].count   += 1;
+  rows.forEach((r) => {
+    if (grouped[r.month]) {
+      grouped[r.month].revenue = parseFloat(r.revenue);
+      grouped[r.month].profit  = parseFloat(r.profit);
+      grouped[r.month].count   = r.count;
     }
   });
 
   return Object.values(grouped)
-    .sort((a, b) => a.month.localeCompare(b.month))
-    .map((m) => ({
-      ...m,
-      revenue: parseFloat(m.revenue.toFixed(2)),
-      profit:  parseFloat(m.profit.toFixed(2)),
-    }));
+    .sort((a, b) => a.month.localeCompare(b.month));
 };
 
 // ─────────────────────────────────────────
