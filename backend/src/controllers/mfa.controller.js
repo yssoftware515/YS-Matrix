@@ -16,12 +16,15 @@ const { auditLog } = require('../middleware/audit.middleware');
 
 // ── Helper: verify temp_token from login ─────────────────────
 // Returns the decoded payload or sends an error response.
-// expectedPurpose pins the token to the exact flow it was minted
-// for (mfa_enroll vs mfa_verify) — a token for one flow must never
-// be usable against the other's endpoint (e.g. an already-verified
-// session re-using an mfa_verify token to trigger a fresh
-// confirm-enrollment).
-function verifyTempToken(req, res, expectedPurpose) {
+// acceptedPurposes pins the token to the flow(s) it may drive
+// (string or array). Isolation rule: an mfa_verify token must never
+// be able to re-trigger enrollment/confirmation, so those endpoints
+// accept 'mfa_enroll' ONLY; /mfa/verify additionally accepts an
+// 'mfa_enroll' token because an UNENROLLED SUPER_ADMIN's login token
+// carries that purpose and must still reach the 403 MFA_NOT_ENABLED
+// gate (a never-enrolled account cannot succeed there: the
+// totp_enabled guard runs before any code check).
+function verifyTempToken(req, res, acceptedPurposes) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     response.unauthorized(res, 'رمز المصادقة مطلوب.', 'TOKEN_MISSING');
@@ -29,9 +32,10 @@ function verifyTempToken(req, res, expectedPurpose) {
   }
 
   const token = authHeader.split(' ')[1];
+  const purposes = Array.isArray(acceptedPurposes) ? acceptedPurposes : [acceptedPurposes];
   try {
     const decoded = verifyAccessToken(token);
-    if (decoded.purpose !== expectedPurpose) {
+    if (!purposes.includes(decoded.purpose)) {
       response.unauthorized(res, 'رمز غير صالح.', 'TOKEN_INVALID');
       return null;
     }
@@ -165,7 +169,7 @@ const confirmEnrollment = async (req, res) => {
 // Body: { code: '123456', useBackup: false }
 const verify = async (req, res) => {
   try {
-    const decoded = verifyTempToken(req, res, 'mfa_verify');
+    const decoded = verifyTempToken(req, res, ['mfa_enroll', 'mfa_verify']);
     if (!decoded) return;
 
     const { code, useBackup = false } = req.body;
