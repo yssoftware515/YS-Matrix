@@ -8,18 +8,8 @@
 
 const inventoryService = require('../services/inventory.service');
 const response         = require('../utils/response');
-const logger           = require('../config/logger');
 const { auditLog }     = require('../middleware/audit.middleware');
-
-// ── helper: map service error codes to HTTP responses ────────────────────────
-const handleServiceError = (res, err) => {
-  if (err.code === 'NOT_FOUND')        return response.notFound(res, err.message);
-  if (err.code === 'VALIDATION_ERROR') return response.validationError(res, err.errors || null, err.message);
-  if (err.code === 'CONFLICT')         return response.conflict(res, err.message);
-  if (err.code === 'FORBIDDEN')        return response.forbidden(res, err.message);
-  logger.error('Inventory service error:', err);
-  return response.serverError(res, 'حدث خطأ في معالجة الطلب.');
-};
+const { handleServiceError } = require('../utils/errorHandler');
 
 // ─────────────────────────────────────────
 const getAllInventory = async (req, res) => {

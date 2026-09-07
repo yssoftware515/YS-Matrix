@@ -6,13 +6,7 @@
 
 const notificationService = require('../services/notification.service');
 const response            = require('../utils/response');
-const logger              = require('../config/logger');
-
-const handleServiceError = (res, err) => {
-  if (err.code === 'NOT_FOUND') return response.notFound(res, err.message);
-  logger.error('Notification service error:', err);
-  return response.serverError(res, 'حدث خطأ في معالجة الإشعارات.');
-};
+const { handleServiceError } = require('../utils/errorHandler');
 
 // ─────────────────────────────────────────
 // GET ALL — paginated list for current showroom

@@ -26,8 +26,8 @@ const helmet    = require('helmet');
 const morgan    = require('morgan');
 const rateLimit = require('express-rate-limit');
 
-const response     = require('./utils/response');
-const { handlePrismaError } = require('./utils/prismaErrorHandler');
+const response           = require('./utils/response');
+const { errorMiddleware } = require('./utils/errorHandler');
 const SECURITY = require('./config/security');
 // Tenant-scoped client — used by /health?check=db as the DB probe
 // ($queryRaw is client-level, untouched by the tenant extension).
@@ -185,33 +185,10 @@ app.use('*', (req, res) =>
 );
 
 // ── Global Error Handler ──────────────────────────────────────
-// eslint-disable-next-line no-unused-vars
-app.use((err, req, res, next) => {
-  if (err.message?.includes('CORS'))          return response.forbidden(res, 'طلب محجوب بسبب سياسة CORS.', 'CORS_BLOCKED');
-  if (err.type === 'entity.parse.failed')     return response.validationError(res, null, 'صيغة JSON غير صالحة.');
-  if (err.type === 'entity.too.large')        return response.error(res, 'حجم الطلب أكبر من المسموح.', 413);
-
-  // Prisma error handler — maps P2002/P2025/P2003/P2000 to safe Arabic
-  // messages. Full error details go to Winston logs only.
-  if (handlePrismaError(err, res)) return;
-
-  logger.error('Unhandled error:', { message: err.message, path: req.path, method: req.method });
-
-  // F-9 FIX: was `NODE_ENV === 'production' ? generic : err.message` —
-  // a NEGATIVE check. Any environment that ISN'T exactly 'production'
-  // (a misconfigured staging box, NODE_ENV simply left unset on a real
-  // deployment, a typo) leaked raw err.message to the client by
-  // default — including Prisma errors that can embed column/table
-  // names or other internal schema details. Inverted to a POSITIVE
-  // whitelist: only the exact string 'development' gets the raw
-  // message; every other value (including unset) fails closed to the
-  // safe generic response — same fail-closed philosophy already
-  // applied to tenant isolation and env validation elsewhere.
-  return response.serverError(
-    res,
-    process.env.NODE_ENV === 'development' ? err.message : 'خطأ داخلي في الخادم.'
-  );
-});
+// Batch 8 · Item M — centralized in utils/errorHandler.js (single
+// source of truth; same CORS/parse/payload/Prisma branches as before,
+// plus unified mapping for service-level codes forwarded via next()).
+app.use(errorMiddleware);
 
 // ── Start ─────────────────────────────────────────────────────
 // Test mode: the harness (tests/helpers/harness.js) boots the app

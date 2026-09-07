@@ -7,12 +7,7 @@
 
 const analyticsService = require('../services/analytics.service');
 const response         = require('../utils/response');
-const logger           = require('../config/logger');
-
-const handleServiceError = (res, err) => {
-  logger.error('Analytics service error:', err);
-  return response.serverError(res, 'حدث خطأ في جلب البيانات.');
-};
+const { handleServiceError } = require('../utils/errorHandler');
 
 // ─────────────────────────────────────────
 const getDashboardKPIs = async (req, res) => {

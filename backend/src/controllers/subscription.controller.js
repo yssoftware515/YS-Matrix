@@ -6,15 +6,8 @@
 
 const subscriptionService = require('../services/subscription.service');
 const response            = require('../utils/response');
-const logger              = require('../config/logger');
 const { auditLog }        = require('../middleware/audit.middleware');
-
-const handleServiceError = (res, err) => {
-  if (err.code === 'NOT_FOUND')        return response.notFound(res, err.message);
-  if (err.code === 'VALIDATION_ERROR') return response.validationError(res, null, err.message);
-  logger.error('Subscription service error:', err);
-  return response.serverError(res, 'حدث خطأ في معالجة الاشتراك.');
-};
+const { handleServiceError } = require('../utils/errorHandler');
 
 // ─────────────────────────────────────────
 // GET CURRENT — for current showroom

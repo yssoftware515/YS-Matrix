@@ -26,14 +26,7 @@ const {
   notifySubscriptionActivated,
   notifyPaymentRejected,
 } = require('../services/notification.service');
-
-const handleServiceError = (res, err) => {
-  if (err.code === 'NOT_FOUND')        return response.notFound(res, err.message);
-  if (err.code === 'CONFLICT')         return response.conflict(res, err.message, 'ACCOUNT_STATE_CONFLICT');
-  if (err.code === 'VALIDATION_ERROR') return response.validationError(res, null, err.message);
-  logger.error('Admin subscription error:', err);
-  return response.serverError(res, 'حدث خطأ في معالجة الطلب.');
-};
+const { handleServiceError } = require('../utils/errorHandler');
 
 // ─────────────────────────────────────────
 // GET /subscriptions — all subscriptions (filters)
@@ -44,7 +37,7 @@ const listSubscriptions = async (req, res) => {
       query: req.query,
     });
     return response.paginated(res, subscriptions, pagination);
-  } catch (err) { return handleServiceError(res, err); }
+  } catch (err) { return handleServiceError(res, err, { conflictCode: 'ACCOUNT_STATE_CONFLICT' }); }
 };
 
 // ─────────────────────────────────────────
@@ -54,7 +47,7 @@ const getSummary = async (req, res) => {
   try {
     const data = await lifecycleService.getSubscriptionHealthSummary();
     return response.success(res, data);
-  } catch (err) { return handleServiceError(res, err); }
+  } catch (err) { return handleServiceError(res, err, { conflictCode: 'ACCOUNT_STATE_CONFLICT' }); }
 };
 
 // ─────────────────────────────────────────
@@ -64,7 +57,7 @@ const getAccountDetail = async (req, res) => {
   try {
     const data = await lifecycleService.getShowroomAccountDetail({ showroomId: req.params.id });
     return response.success(res, data);
-  } catch (err) { return handleServiceError(res, err); }
+  } catch (err) { return handleServiceError(res, err, { conflictCode: 'ACCOUNT_STATE_CONFLICT' }); }
 };
 
 // ─────────────────────────────────────────
@@ -76,7 +69,7 @@ const listPayments = async (req, res) => {
       query: req.query,
     });
     return response.paginated(res, payments, pagination);
-  } catch (err) { return handleServiceError(res, err); }
+  } catch (err) { return handleServiceError(res, err, { conflictCode: 'ACCOUNT_STATE_CONFLICT' }); }
 };
 
 // ─────────────────────────────────────────
@@ -86,7 +79,7 @@ const getPayment = async (req, res) => {
   try {
     const data = await lifecycleService.getPaymentForAdmin({ paymentId: req.params.id });
     return response.success(res, data);
-  } catch (err) { return handleServiceError(res, err); }
+  } catch (err) { return handleServiceError(res, err, { conflictCode: 'ACCOUNT_STATE_CONFLICT' }); }
 };
 
 // ─────────────────────────────────────────
@@ -118,7 +111,7 @@ const approvePayment = async (req, res) => {
     });
 
     return response.success(res, result, 'تم تفعيل الاشتراك بنجاح.');
-  } catch (err) { return handleServiceError(res, err); }
+  } catch (err) { return handleServiceError(res, err, { conflictCode: 'ACCOUNT_STATE_CONFLICT' }); }
 };
 
 // ─────────────────────────────────────────
@@ -149,7 +142,7 @@ const rejectPayment = async (req, res) => {
     });
 
     return response.success(res, result, 'تم رفض الدفعة.');
-  } catch (err) { return handleServiceError(res, err); }
+  } catch (err) { return handleServiceError(res, err, { conflictCode: 'ACCOUNT_STATE_CONFLICT' }); }
 };
 
 module.exports = {

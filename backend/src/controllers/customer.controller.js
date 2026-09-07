@@ -7,16 +7,8 @@
 
 const customerService = require('../services/customer.service');
 const response        = require('../utils/response');
-const logger          = require('../config/logger');
 const { auditLog }    = require('../middleware/audit.middleware');
-
-const handleServiceError = (res, err) => {
-  if (err.code === 'NOT_FOUND')        return response.notFound(res, err.message);
-  if (err.code === 'VALIDATION_ERROR') return response.validationError(res, null, err.message);
-  if (err.code === 'CONFLICT')         return response.conflict(res, err.message);
-  logger.error('Customer service error:', err);
-  return response.serverError(res, 'حدث خطأ في معالجة الطلب.');
-};
+const { handleServiceError } = require('../utils/errorHandler');
 
 // ─────────────────────────────────────────
 const getAllCustomers = async (req, res) => {

@@ -13,16 +13,8 @@
 
 const usersService = require('../services/users.service');
 const response     = require('../utils/response');
-const logger       = require('../config/logger');
 const { auditLog } = require('../middleware/audit.middleware');
-
-const handleServiceError = (res, err) => {
-  if (err.code === 'NOT_FOUND')        return response.notFound(res, err.message);
-  if (err.code === 'VALIDATION_ERROR') return response.validationError(res, null, err.message);
-  if (err.code === 'PLAN_LIMIT_REACHED') return response.forbidden(res, err.message, 'PLAN_LIMIT_REACHED');
-  logger.error('Users service error:', err);
-  return response.serverError(res, 'حدث خطأ في إدارة المستخدمين.');
-};
+const { handleServiceError } = require('../utils/errorHandler');
 
 // GET /api/v1/users — tenant users list (OWNER)
 const listUsers = async (req, res) => {

@@ -22,15 +22,7 @@ const response         = require('../utils/response');
 const logger           = require('../config/logger');
 const { auditLog }     = require('../middleware/audit.middleware');
 const { notifyPaymentSubmitted } = require('../services/notification.service');
-
-const handleServiceError = (res, err) => {
-  if (err.code === 'NOT_FOUND')         return response.notFound(res, err.message);
-  if (err.code === 'CONFLICT')          return response.conflict(res, err.message, 'ACCOUNT_STATE_CONFLICT');
-  if (err.code === 'VALIDATION_ERROR')  return response.validationError(res, null, err.message);
-  if (err.code === 'PLAN_LIMIT_REACHED') return response.forbidden(res, err.message, 'PLAN_LIMIT_REACHED');
-  logger.error('Subscription lifecycle error:', err);
-  return response.serverError(res, 'حدث خطأ في معالجة الاشتراك.');
-};
+const { handleServiceError } = require('../utils/errorHandler');
 
 // ─────────────────────────────────────────
 // GET /plans — public catalog (authenticated)
@@ -39,7 +31,7 @@ const listPlans = async (req, res) => {
   try {
     const plans = await lifecycleService.getPlans();
     return response.success(res, plans);
-  } catch (err) { return handleServiceError(res, err); }
+  } catch (err) { return handleServiceError(res, err, { conflictCode: 'ACCOUNT_STATE_CONFLICT' }); }
 };
 
 // ─────────────────────────────────────────
@@ -55,7 +47,7 @@ const listPricing = async (req, res) => {
       currency: req.query.currency,
     });
     return response.success(res, catalog);
-  } catch (err) { return handleServiceError(res, err); }
+  } catch (err) { return handleServiceError(res, err, { conflictCode: 'ACCOUNT_STATE_CONFLICT' }); }
 };
 
 // ─────────────────────────────────────────
@@ -70,7 +62,7 @@ const getStatus = async (req, res) => {
       viewerRole: req.user.role,
     });
     return response.success(res, data);
-  } catch (err) { return handleServiceError(res, err); }
+  } catch (err) { return handleServiceError(res, err, { conflictCode: 'ACCOUNT_STATE_CONFLICT' }); }
 };
 
 // ─────────────────────────────────────────
@@ -111,7 +103,7 @@ const requestSubscription = async (req, res) => {
     });
 
     return response.created(res, result, 'تم إرسال طلب الاشتراك بنجاح. قيد مراجعة الإدارة.');
-  } catch (err) { return handleServiceError(res, err); }
+  } catch (err) { return handleServiceError(res, err, { conflictCode: 'ACCOUNT_STATE_CONFLICT' }); }
 };
 
 // ─────────────────────────────────────────
@@ -151,7 +143,7 @@ const requestRenewal = async (req, res) => {
     });
 
     return response.created(res, result, 'تم إرسال طلب التجديد بنجاح. قيد مراجعة الإدارة.');
-  } catch (err) { return handleServiceError(res, err); }
+  } catch (err) { return handleServiceError(res, err, { conflictCode: 'ACCOUNT_STATE_CONFLICT' }); }
 };
 
 // ─────────────────────────────────────────
@@ -178,7 +170,7 @@ const cancelPendingRequest = async (req, res) => {
     });
 
     return response.success(res, result, 'تم إلغاء الطلب المعلق.');
-  } catch (err) { return handleServiceError(res, err); }
+  } catch (err) { return handleServiceError(res, err, { conflictCode: 'ACCOUNT_STATE_CONFLICT' }); }
 };
 
 // ─────────────────────────────────────────
@@ -194,7 +186,7 @@ const listOwnPayments = async (req, res) => {
       viewerRole:  req.user.role,
     });
     return response.paginated(res, payments, pagination);
-  } catch (err) { return handleServiceError(res, err); }
+  } catch (err) { return handleServiceError(res, err, { conflictCode: 'ACCOUNT_STATE_CONFLICT' }); }
 };
 
 // ─────────────────────────────────────────
@@ -222,7 +214,7 @@ const attachPaymentProof = async (req, res) => {
     });
 
     return response.success(res, { id: result.id, status: result.status }, 'تم تحديث إثبات الدفع.');
-  } catch (err) { return handleServiceError(res, err); }
+  } catch (err) { return handleServiceError(res, err, { conflictCode: 'ACCOUNT_STATE_CONFLICT' }); }
 };
 
 module.exports = {
