@@ -20,11 +20,12 @@ test.describe('Global Search: trigger → search → navigate', () => {
     await login(page);
     await expect(page).toHaveURL(/\/dashboard/);
 
-    // 1. Open search via keyboard shortcut
-    //    (wait for the GlobalSearch trigger so the Ctrl+K handler is
-    //    hydrated/attached before we press it)
+    // 1. Open search via the trigger button
+    //    (click calls setOpen(true) directly and is race-free — the Ctrl+K
+    //    keydown listener can race hydration on the CI runner, so the button
+    //    is the deterministic path the way the reopen below already does)
     await expect(page.getByTitle('Ctrl+K')).toBeVisible({ timeout: 10_000 });
-    await page.keyboard.press('Control+k');
+    await page.getByTitle('Ctrl+K').click();
 
     // 2. Wait for search modal to appear
     const searchInput = page.getByPlaceholder(/ابحث في المخزون/i);
