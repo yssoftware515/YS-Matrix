@@ -13,17 +13,18 @@
 // deployment target changes to serverless — a single Node process's
 // memory is not shared/reliable across serverless invocations.
 //
-// TTL is a fixed 60 seconds — deliberately chosen to match the
-// frontend's TanStack Query `staleTime: 60s` (providers.tsx). No
-// event-based invalidation (no hooking into createSale/cancelSale/
-// addPayment/etc.): analytics dashboards tolerate a few seconds of
-// staleness by nature, and event-based invalidation would require
-// touching every mutation path across sales/inventory/supplier
-// services — wide blast radius for a feature that's read-only and
-// non-critical-path. A single missed invalidation call there would
-// silently serve stale data forever; a fixed TTL bounds staleness
-// to a known, small window instead.
-//
+// TTL: default 60 seconds — deliberately chosen to match the
+// frontend's TanStack Query `staleTime: 60s` (providers.tsx). Env-tunable
+// via CACHE_TTL_MS (opt-in; unset keeps 60s).
+const TTL_MS = Number(process.env.CACHE_TTL_MS) || 60 * 1000;
+
+// Cap on live entries — a burst of unique query strings can otherwise
+// grow the store without bound for up to one TTL window (and every
+// entry's unref'd timer stays pending meanwhile). FIFO eviction of the
+// oldest insertion, with its timer cleared, on overflow. Env-tunable
+// via CACHE_MAX_ENTRIES.
+const MAX_ENTRIES = Number(process.env.CACHE_MAX_ENTRIES) || 1000;
+
 // MULTI-TENANCY GUARD (non-negotiable): the cache key ALWAYS starts
 // with `showroomId`. This is what prevents a cross-tenant data leak
 // — two showrooms hitting the exact same route + query string must
@@ -31,8 +32,6 @@
 // ============================================================
 
 'use strict';
-
-const TTL_MS = 60 * 1000;
 
 // Map<cacheKey, { body: unknown, expiresAt: number, timer: NodeJS.Timeout }>
 const cacheStore = new Map();
@@ -67,12 +66,19 @@ function buildCacheKey(showroomId, req) {
  */
 function cacheResponse(ttlMs = TTL_MS) {
   return (req, res, next) => {
+    // Security guard: caching a mutating request's response would let
+    // a later retry replay a stale success (or cache a body that was
+    // never meant to be shared). This middleware is only ever mounted
+    // on GET routes today, but fail open (skip caching) for ANY other
+    // method so a future route wired through cacheResponse can't
+    // accidentally memoize a write.
+    //
     // req.showroomId is set by tenant.middleware, which runs before
     // this in every route this is mounted on (see analytics.routes.js
     // router.use ordering). Fail closed: if it's somehow missing,
     // skip caching entirely rather than risk a key without tenant
     // scoping.
-    if (!req.showroomId) {
+    if (req.method !== 'GET' || !req.showroomId) {
       return next();
     }
 
@@ -80,8 +86,17 @@ function cacheResponse(ttlMs = TTL_MS) {
     const cached = cacheStore.get(key);
 
     if (cached) {
-      res.set('X-Cache', 'HIT');
-      return res.json(cached.body);
+      // Defense-in-depth on reads: the setTimeout self-deletion is the
+      // primary eviction path, but verify expiry here too so an entry
+      // with a lost/cleared timer can NEVER be replayed stale. Reclaim
+      // it immediately if it has lapsed.
+      if (cached.expiresAt <= Date.now()) {
+        clearTimeout(cached.timer);
+        cacheStore.delete(key);
+      } else {
+        res.set('X-Cache', 'HIT');
+        return res.json(cached.body);
+      }
     }
 
     const originalJson = res.json.bind(res);
@@ -91,6 +106,19 @@ function cacheResponse(ttlMs = TTL_MS) {
       // resolves with a 2xx status; anything else (validation errors,
       // 500s) must never be memoized and replayed.
       if (res.statusCode >= 200 && res.statusCode < 300) {
+        // Bounded store: if at the cap, evict the oldest-inserted
+        // entry and clear its timer so it can't keep the process's
+        // memory pinned for the rest of its TTL. Map preserves
+        // insertion order, so the first key is the oldest.
+        if (cacheStore.size >= MAX_ENTRIES) {
+          const oldestKey = cacheStore.keys().next().value;
+          if (oldestKey !== undefined) {
+            const oldest = cacheStore.get(oldestKey);
+            if (oldest) clearTimeout(oldest.timer);
+            cacheStore.delete(oldestKey);
+          }
+        }
+
         // Clear any pre-existing timer for this key before overwriting
         // (defensive — shouldn't happen given the HIT short-circuit
         // above, but avoids ever leaking a duplicate timer).
