@@ -10,3 +10,5 @@ dist/
 tsconfig.tsbuildinfo
 
 test-results/
+test-results.json
+playwright-report/

@@ -258,6 +258,7 @@ export function GlobalSearch() {
       {/* Mobile icon only */}
       <button
         onClick={() => setOpen(true)}
+        aria-label="البحث السريع"
         className="flex md:hidden items-center justify-center w-8 h-8 rounded-lg border border-matrix-border text-matrix-subtle hover:border-matrix-cyan hover:text-matrix-cyan transition-all"
       >
         <Search className="w-4 h-4" />

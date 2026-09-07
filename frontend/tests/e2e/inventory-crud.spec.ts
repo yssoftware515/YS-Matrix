@@ -34,12 +34,12 @@ test.describe('Inventory CRUD: create → edit → deactivate → low-stock', ()
     await addBtn.click();
 
     // 4. Wait for modal
-    const modalTitle = page.locator('span').filter({ hasText: /^إضافة منتج جديد$/ }).first();
+    const modalTitle = page.locator('h2').filter({ hasText: /^إضافة منتج جديد$/ }).first();
     await expect(modalTitle).toBeVisible({ timeout: 5_000 });
 
     // 5. Fill form — select vehicle type
     const selectEl = page.locator('label:has-text("نوع المنتج") + select');
-    await selectEl.selectOption({ label: 'دراجة' });
+    await selectEl.selectOption({ label: 'دراجة نارية' });
 
     // 6. Fill form fields
     await page.getByPlaceholder('باجاج').fill(brand);
@@ -68,7 +68,7 @@ test.describe('Inventory CRUD: create → edit → deactivate → low-stock', ()
     await expect(editBtn).toBeVisible({ timeout: 5_000 });
     await editBtn.click();
 
-    const editModal = page.locator('span').filter({ hasText: /^تعديل المنتج$/ }).first();
+    const editModal = page.locator('h2').filter({ hasText: /^تعديل المنتج$/ }).first();
     await expect(editModal).toBeVisible({ timeout: 5_000 });
 
     const modelInput = page.getByPlaceholder('بوكسر 150').first();
@@ -93,7 +93,7 @@ test.describe('Inventory CRUD: create → edit → deactivate → low-stock', ()
     await expect(deleteBtn).toBeVisible({ timeout: 5_000 });
     await deleteBtn.click();
 
-    const deleteModal = page.locator('span').filter({ hasText: /^تأكيد الحذف$/ }).first();
+    const deleteModal = page.locator('h2').filter({ hasText: /^تأكيد الحذف$/ }).first();
     await expect(deleteModal).toBeVisible({ timeout: 5_000 });
 
     const confirmDelete = page.getByRole('button', { name: /تأكيد الحذف/i });

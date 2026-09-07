@@ -4,6 +4,12 @@ export default defineConfig({
   testDir: './tests/e2e',
   timeout: 90_000,
   retries: 0,
+  // Serial execution only. The specs share one mutable backend/test DB and
+  // several of them sell the SAME demo inventory items / reuse the same
+  // customer phone — parallel workers race and the loser's write silently
+  // fails (then a success-toast assertion times out). Determinism over
+  // speed here; 9 specs still finish well inside CI limits.
+  workers: 1,
   reporter: [
     ['list'],
     ['json', { outputFile: 'test-results.json' }],

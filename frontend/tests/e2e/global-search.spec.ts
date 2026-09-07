@@ -21,6 +21,9 @@ test.describe('Global Search: trigger → search → navigate', () => {
     await expect(page).toHaveURL(/\/dashboard/);
 
     // 1. Open search via keyboard shortcut
+    //    (wait for the GlobalSearch trigger so the Ctrl+K handler is
+    //    hydrated/attached before we press it)
+    await expect(page.getByTitle('Ctrl+K')).toBeVisible({ timeout: 10_000 });
     await page.keyboard.press('Control+k');
 
     // 2. Wait for search modal to appear
@@ -49,7 +52,12 @@ test.describe('Global Search: trigger → search → navigate', () => {
     }
 
     // 7. Close and reopen search — verify Escape works
-    await page.keyboard.press('Control+k');
+    //    (wait for the modal to fully unmount before triggering again;
+    //    reopen via the trigger button — after a client-side navigation the
+    //    Ctrl+K keydown listener may not be re-attached yet, but the
+    //    button click calls setOpen(true) directly and is race-free)
+    await expect(searchInput).toBeHidden({ timeout: 5_000 });
+    await page.getByTitle('Ctrl+K').click();
     await expect(searchInput).toBeVisible({ timeout: 5_000 });
     await page.keyboard.press('Escape');
     await expect(searchInput).toBeHidden({ timeout: 5_000 });
@@ -63,7 +71,7 @@ test.describe('Global Search: trigger → search → navigate', () => {
     await expect(page).toHaveURL(/\/dashboard/);
 
     // 1. On mobile, click the search icon button in the navbar
-    const searchIcon = page.locator('button.flex.md\\:hidden').first();
+    const searchIcon = page.getByRole('button', { name: 'البحث السريع' });
     await searchIcon.click();
 
     // 2. Wait for search modal

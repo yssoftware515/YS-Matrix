@@ -52,23 +52,57 @@ test.describe('Installment payment: create sale → pay installment → verify',
     await expect(firstItem).toBeVisible({ timeout: 10_000 });
     await firstItem.click();
 
+    // 6b. Read the computed total from the modal. The backend reconciles
+    //     down_payment + monthly_amount × installment_months === total
+    //     (within ±0.01), so the amounts MUST be derived from the real
+    //     item price — hard-coded values fail as soon as the price isn't
+    //     400000. formatCurrency() renders Arabic-Indic digits, so parse
+    //     them back to Latin before computing.
+    const ARABIC_DIGITS = '٠١٢٣٤٥٦٧٨٩';
+    const parseArabicMoney = (s: string) => parseInt(
+      (s || '')
+        .replace(/[٠-٩]/g, (d) => String(ARABIC_DIGITS.indexOf(d)))
+        .replace(/٬/g, '')
+        .replace(/[^0-9]/g, ''),
+      10,
+    );
+    const totalBox = page.locator('div.p-3.rounded-lg').filter({ hasText: 'الإجمالي المحسوب' }).first();
+    await expect(totalBox).toBeVisible({ timeout: 5_000 });
+    const total = parseArabicMoney(await totalBox.innerText());
+    expect(total, 'Computed sale total should be a readable number').toBeGreaterThan(0);
+
     // 7. Select INSTALLMENT payment type
     const installmentBtn = page.locator('button').filter({ hasText: /أقساط/ }).first();
     await expect(installmentBtn).toBeVisible({ timeout: 5_000 });
     await installmentBtn.click();
 
-    // 8. Fill installment fields
+    // 8. Fill installment fields — derive values that reconcile:
+    //    down = 40%, 2 monthly installments of 30% each
+    const downPayment = Math.round(total * 0.4);
+    const monthly = Math.round((total - downPayment) / 2);
+    expect(downPayment + monthly * 2, 'Installment schedule must sum to the total').toBe(total);
+
     const downPaymentInput = page.locator('label:has-text("الدفعة الأولى") + input');
     await expect(downPaymentInput).toBeVisible({ timeout: 5_000 });
-    await downPaymentInput.fill('200000');
+    await downPaymentInput.fill(String(downPayment));
 
     const monthlyInput = page.locator('label:has-text("قيمة القسط") + input');
     await expect(monthlyInput).toBeVisible({ timeout: 5_000 });
-    await monthlyInput.fill('100000');
+    await monthlyInput.fill(String(monthly));
 
     const monthsInput = page.locator('label:has-text("عدد الأشهر") + input');
     await expect(monthsInput).toBeVisible({ timeout: 5_000 });
     await monthsInput.fill('2');
+
+    // 8b. first_due_date is REQUIRED by the backend (z.string().datetime()
+    //     + must be in the future). The modal serializes the picked day to
+    //     local midnight ISO — pick tomorrow (in LOCAL time, since the
+    //     type=date value is interpreted in local time on submit).
+    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const dueDate = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
+    const dueDateInput = page.locator('label:has-text("تاريخ أول قسط") + input');
+    await expect(dueDateInput).toBeVisible({ timeout: 5_000 });
+    await dueDateInput.fill(dueDate);;
 
     // 9. Submit
     const submitBtn = page.getByRole('button', { name: /تأكيد البيع/i });

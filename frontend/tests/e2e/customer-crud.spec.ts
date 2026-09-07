@@ -15,7 +15,10 @@ async function login(page: import('@playwright/test').Page) {
 test.describe('Customer CRUD: create → edit → deactivate → reactivate', () => {
   const customerName = `E2E Customer ${Date.now()}`;
   const editedName = `${customerName} (edited)`;
-  const customerPhone = '+967700000001';
+  // Backend enforces phone uniqueness across ALL customers (even soft-deleted),
+  // so the phone must be unique per run like the name — a fixed constant would
+  // collide on the second run.
+  const customerPhone = `+9677${Date.now().toString().slice(-8)}`;
 
   test('full customer lifecycle', async ({ page }) => {
     test.setTimeout(90_000);
@@ -34,7 +37,7 @@ test.describe('Customer CRUD: create → edit → deactivate → reactivate', ()
     await addBtn.click();
 
     // 4. Wait for modal
-    const modalTitle = page.locator('span').filter({ hasText: /^إضافة عميل جديد$/ }).first();
+    const modalTitle = page.locator('h2').filter({ hasText: /^إضافة عميل جديد$/ }).first();
     await expect(modalTitle).toBeVisible({ timeout: 5_000 });
 
     // 5. Fill form
@@ -48,7 +51,7 @@ test.describe('Customer CRUD: create → edit → deactivate → reactivate', ()
 
     // 7. Wait for success
     await expect(
-      page.locator('.toast, [role="status"]').filter({ hasText: /تمت الإضافة|تم الإنشاء/ }).first(),
+      page.locator('.toast, [role="status"]').filter({ hasText: /تم إضافة العميل/ }).first(),
     ).toBeVisible({ timeout: 15_000 });
 
     // 8. Verify customer appears in the list
@@ -61,7 +64,7 @@ test.describe('Customer CRUD: create → edit → deactivate → reactivate', ()
     await expect(editBtn).toBeVisible({ timeout: 5_000 });
     await editBtn.click();
 
-    const editModal = page.locator('span').filter({ hasText: /^تعديل بيانات العميل$/ }).first();
+    const editModal = page.locator('h2').filter({ hasText: /^تعديل بيانات العميل$/ }).first();
     await expect(editModal).toBeVisible({ timeout: 5_000 });
 
     const nameInput = page.getByPlaceholder('محمود سيد').first();
@@ -73,7 +76,7 @@ test.describe('Customer CRUD: create → edit → deactivate → reactivate', ()
     await saveEditBtn.click();
 
     await expect(
-      page.locator('.toast, [role="status"]').filter({ hasText: /تم التعديل/ }).first(),
+      page.locator('.toast, [role="status"]').filter({ hasText: /تم تحديث بيانات العميل/ }).first(),
     ).toBeVisible({ timeout: 15_000 });
 
     // 10. Verify edited name appears
@@ -86,7 +89,7 @@ test.describe('Customer CRUD: create → edit → deactivate → reactivate', ()
     await expect(deactivateBtn).toBeVisible({ timeout: 5_000 });
     await deactivateBtn.click();
 
-    const deactivateModal = page.locator('span').filter({ hasText: /^تعطيل العميل$/ }).first();
+    const deactivateModal = page.locator('h2').filter({ hasText: /^تعطيل العميل$/ }).first();
     await expect(deactivateModal).toBeVisible({ timeout: 5_000 });
 
     const confirmDeactivate = page.getByRole('button', { name: /نعم، تعطيل العميل/i });
@@ -94,7 +97,7 @@ test.describe('Customer CRUD: create → edit → deactivate → reactivate', ()
     await confirmDeactivate.click();
 
     await expect(
-      page.locator('.toast, [role="status"]').filter({ hasText: /تم التعطيل|تم الحذف/ }).first(),
+      page.locator('.toast, [role="status"]').filter({ hasText: /تم تعطيل العميل/ }).first(),
     ).toBeVisible({ timeout: 15_000 });
 
     // 12. Verify customer is no longer in the active list

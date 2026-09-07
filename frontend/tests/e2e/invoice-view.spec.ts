@@ -69,32 +69,30 @@ test.describe('Invoice view: navigate → verify fields → print button', () =>
     const invoiceText = await invoiceNum.textContent();
     await invoiceNum.click();
 
-    // 5. Verify we're on the invoice detail page
-    await page.waitForURL(/\/dashboard\/invoices\//, { timeout: 10_000 });
+    // 5. The sales-table row opens the SaleDetailDrawer slide-over (the
+    //    app's invoice-view surface — there is NO /dashboard/invoices/
+    //    route reachable from here). Verify the drawer's contents.
+    const drawer = page.locator('aside.matrix-panel').or(page.locator('motion.aside')).first();
+    await expect(drawer).toBeVisible({ timeout: 10_000 });
 
-    // 6. Verify key invoice fields are displayed
-    // Invoice number
-    await expect(page.locator('text=بيانات الفاتورة').first()).toBeVisible({ timeout: 10_000 });
+    // 6. Verify key invoice fields are displayed in the drawer
+    // Invoice number (drawer header)
+    await expect(page.locator('aside').filter({ hasText: invoiceText }).first()).toBeVisible({ timeout: 5_000 });
 
-    // Customer section
-    await expect(page.locator('text=بيانات العميل').first()).toBeVisible({ timeout: 5_000 });
+    // Product section
+    await expect(page.locator('aside').getByText(/السيارة \/ المنتج|المنتجات/).first()).toBeVisible({ timeout: 5_000 });
 
-    // Products table
-    await expect(page.locator('text=المنتجات').first()).toBeVisible({ timeout: 5_000 });
+    // Financials — الإجمالي النهائي row
+    await expect(page.locator('aside').getByText('الإجمالي النهائي').first()).toBeVisible({ timeout: 5_000 });
 
-    // Totals — look for الإجمالي
-    await expect(page.locator('text=الإجمالي').first()).toBeVisible({ timeout: 5_000 });
-
-    // Verify the invoice number appears on the page
-    await expect(page.locator(`text=${invoiceText}`).first()).toBeVisible({ timeout: 5_000 });
-
-    // 7. Verify print button exists
-    const printBtn = page.getByRole('button', { name: /طباعة|print/i });
+    // 7. Verify print button exists in the drawer header
+    const printBtn = page.locator('aside').getByRole('button', { name: /طباعة|print/i });
     await expect(printBtn).toBeVisible({ timeout: 5_000 });
 
-    // 8. Verify back button exists
-    const backBtn = page.getByRole('button', { name: /رجوع/i }).first();
-    const hasBackBtn = await backBtn.isVisible().catch(() => false);
-    expect(hasBackBtn, 'Back button should be visible').toBe(true);
+    // 8. Verify close (X) button closes the drawer
+    const closeBtn = page.locator('aside').getByRole('button').filter({ has: page.locator('svg.lucide-x') }).first();
+    await expect(closeBtn).toBeVisible({ timeout: 5_000 });
+    await closeBtn.click();
+    await expect(drawer).toBeHidden({ timeout: 5_000 });
   });
 });
