@@ -16,7 +16,12 @@ const { auditLog } = require('../middleware/audit.middleware');
 
 // ── Helper: verify temp_token from login ─────────────────────
 // Returns the decoded payload or sends an error response.
-function verifyTempToken(req, res) {
+// expectedPurpose pins the token to the exact flow it was minted
+// for (mfa_enroll vs mfa_verify) — a token for one flow must never
+// be usable against the other's endpoint (e.g. an already-verified
+// session re-using an mfa_verify token to trigger a fresh
+// confirm-enrollment).
+function verifyTempToken(req, res, expectedPurpose) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     response.unauthorized(res, 'رمز المصادقة مطلوب.', 'TOKEN_MISSING');
@@ -26,7 +31,7 @@ function verifyTempToken(req, res) {
   const token = authHeader.split(' ')[1];
   try {
     const decoded = verifyAccessToken(token);
-    if (decoded.purpose !== 'mfa_enroll' && decoded.purpose !== 'mfa_verify') {
+    if (decoded.purpose !== expectedPurpose) {
       response.unauthorized(res, 'رمز غير صالح.', 'TOKEN_INVALID');
       return null;
     }
@@ -46,7 +51,7 @@ function verifyTempToken(req, res) {
 // Requires temp_token with purpose=mfa_enroll from login.
 const enroll = async (req, res) => {
   try {
-    const decoded = verifyTempToken(req, res);
+    const decoded = verifyTempToken(req, res, 'mfa_enroll');
     if (!decoded) return;
 
     const user = await db.user.findUnique({
@@ -90,7 +95,7 @@ const enroll = async (req, res) => {
 // Body: { code: '123456' }
 const confirmEnrollment = async (req, res) => {
   try {
-    const decoded = verifyTempToken(req, res);
+    const decoded = verifyTempToken(req, res, 'mfa_enroll');
     if (!decoded) return;
 
     const { code } = req.body;
@@ -112,25 +117,13 @@ const confirmEnrollment = async (req, res) => {
       return response.conflict(res, 'MFA مفعّل بالفعل.', 'MFA_ALREADY_ENABLED');
     }
 
-    // The secret was generated during enroll and passed back to the
-    // frontend. The user now enters a code from their authenticator.
-    // We need the secret to verify — it's embedded in the temp_token
-    // OR we re-generate it. Since the temp_token doesn't carry the
-    // secret (it's too large), we require the frontend to send it
-    // back. This is acceptable because:
-    //   1. The temp_token already authenticates the user
-    //   2. The secret is only valid for this enrollment session
-    //   3. HTTPS protects the transit
-    //
-    // HOWEVER — for maximum security, we store the pending secret
-    // server-side during enrollment. Let's use a simpler approach:
-    // the frontend sends the secret it received from /enroll back,
-    // and we verify the code against it. If valid, we persist.
-    //
-    // Actually, the BEST approach: the frontend passes the secret
-    // it received. We verify the code, then persist. This means the
-    // secret travels client-side once (over HTTPS) which is standard
-    // for TOTP enrollment flows.
+    // The secret must round-trip through the client: the authenticator
+    // app already holds a copy (from the QR scan at /enroll), so the
+    // frontend returning it here verifies the SAME device the user
+    // scanned — the standard for stateless TOTP enrollment. It is
+    // scoped to this temp_token session, travels only over HTTPS,
+    // and is only persisted (mfa.service.persistMfaSetup) after the
+    // code verifies. Never log, cache, or return it from this step.
 
     const secret = req.body.secret;
     if (!secret) {
@@ -172,7 +165,7 @@ const confirmEnrollment = async (req, res) => {
 // Body: { code: '123456', useBackup: false }
 const verify = async (req, res) => {
   try {
-    const decoded = verifyTempToken(req, res);
+    const decoded = verifyTempToken(req, res, 'mfa_verify');
     if (!decoded) return;
 
     const { code, useBackup = false } = req.body;

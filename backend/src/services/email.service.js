@@ -67,6 +67,33 @@ const getResendClient = () => {
 // and still uses the brand's cyan accent + dark-on-light card via
 // inline styles only, which DO survive across clients.
 // ─────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// HTML-escaping helpers (Phase Batch 8 — P).
+//
+// Every user-derived value that lands inside the email template is
+// escaped before interpolation. Nothing in the transport chain (Express
+// body parser → DB → template) HTML-escapes, so a display name of
+// `<img src=x onerror=...>` — or any other markup a user can type —
+// would otherwise be rendered as live HTML by message-format-aware
+// clients: email-HTML injection usable for phishing/spoofing. Numbers
+// re-enter through the same path for a single escaping discipline.
+const escapeHtml = (value) => String(value)
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;');
+
+// href attributes: plain escaping is not enough — a `javascript:` /
+// `data:`/`vbscript:` scheme survives character escaping and still
+// executes on click. Reset URLs are built server-side from
+// FRONTEND_URL, but the template also refuses any scheme other than
+// http(s) so a regression in the caller can't weaponize the link.
+const safeHref = (url) => (
+  /^https?:\/\//i.test(String(url)) ? escapeHtml(url) : '#'
+);
+// ─────────────────────────────────────────────────────────────
+
 const buildResetEmailHtml = ({ name, resetUrl, expiresInMinutes }) => `
 <!DOCTYPE html>
 <html dir="rtl" lang="ar">
@@ -82,18 +109,18 @@ const buildResetEmailHtml = ({ name, resetUrl, expiresInMinutes }) => `
             </tr>
             <tr>
               <td style="padding:8px 28px 28px 28px;color:#e2e8f0;font-size:15px;line-height:1.8;text-align:right;">
-                <p>مرحباً ${name}،</p>
+                <p>مرحباً ${escapeHtml(name)}،</p>
                 <p>وصلنا طلب لإعادة تعيين كلمة مرور حسابك في YS-MATRIX. اضغط الزر أدناه لاختيار كلمة مرور جديدة:</p>
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0;">
                   <tr>
                     <td align="center">
-                      <a href="${resetUrl}" style="display:inline-block;background-color:#00d4ff;color:#020408;font-weight:bold;text-decoration:none;padding:14px 32px;border-radius:8px;font-size:15px;">
+                      <a href="${safeHref(resetUrl)}" style="display:inline-block;background-color:#00d4ff;color:#020408;font-weight:bold;text-decoration:none;padding:14px 32px;border-radius:8px;font-size:15px;">
                         إعادة تعيين كلمة المرور
                       </a>
                     </td>
                   </tr>
                 </table>
-                <p style="color:#94a3b8;font-size:13px;">هذا الرابط صالح لمدة ${expiresInMinutes} دقيقة فقط، ولمرة استخدام واحدة.</p>
+                <p style="color:#94a3b8;font-size:13px;">هذا الرابط صالح لمدة ${escapeHtml(Number(expiresInMinutes) || 0)} دقيقة فقط، ولمرة استخدام واحدة.</p>
                 <p style="color:#94a3b8;font-size:13px;">إذا لم تطلب إعادة تعيين كلمة المرور، يمكنك تجاهل هذه الرسالة بأمان — حسابك لن يتأثر.</p>
               </td>
             </tr>
