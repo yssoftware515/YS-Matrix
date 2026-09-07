@@ -23,6 +23,17 @@ const notificationService = require('../../src/services/notification.service');
 const EMAIL = 'trial-owner@test.local';
 const DAY = 24 * 60 * 60 * 1000;
 
+// Notification writes are fire-and-forget — poll until the row lands.
+const waitForNotification = async (where, { timeout = 3000, interval = 50 } = {}) => {
+  const start = Date.now();
+  while (Date.now() - start < timeout) {
+    const found = await db.notification.findFirst({ where });
+    if (found) return found;
+    await new Promise((r) => setTimeout(r, interval));
+  }
+  return null;
+};
+
 let base;
 let trialToken;       // the freshly registered OWNER
 let superToken;       // platform authority for approval/rejection
@@ -249,7 +260,7 @@ test('admin rejection cancels the request and notifies the owner', async () => {
   assert.strictEqual(pay.status, 'REJECTED');
   assert.strictEqual(pay.rejection_reason, 'مستند التحويل غير واضح');
 
-  const notif = await db.notification.findFirst({ where: { showroom_id: showroomId, type: 'PAYMENT_REJECTED' } });
+  const notif = await waitForNotification({ showroom_id: showroomId, type: 'PAYMENT_REJECTED' });
   assert.ok(notif, 'rejection notification must exist');
 });
 
