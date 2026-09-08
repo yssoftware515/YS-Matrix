@@ -37,6 +37,13 @@ const KNOWN_PLACEHOLDERS = new Set([
   'GENERATE_STRONG_64_CHAR_SECRET_HERE',          // .env.example JWT_ACCESS_SECRET
   'GENERATE_ANOTHER_STRONG_64_CHAR_SECRET_HERE',  // .env.example JWT_REFRESH_SECRET
   'enter strong pass',                            // .env.example SUPER_ADMIN_PASSWORD
+  // Current .env.example placeholders (Batch 8 — Q) — a verbatim
+  // .env.example → .env copy must boot-fail, never pass silently.
+  'replace_with_a_real_random_64_char_hex_secret',
+  'replace_with_a_different_real_random_64_char_hex_secret',
+  'replace_with_a_real_random_cron_secret_at_least_32_chars',
+  'replace_with_a_real_random_64_char_hex_key',
+  'replace_with_a_strong_real_password',
   'changeme',
   'change_me',
   'secret',
