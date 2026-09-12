@@ -598,6 +598,13 @@ model Notification {
   @@index([showroom_id, is_read])
   @@index([showroom_id, user_id])
   @@index([created_at])
+  // Batch 8 (S): listNotifications filters showroom_id + is_read AND
+  // sorts by created_at DESC in the same query (notification.service.js).
+  // Same reasoning as the AuditLog composite below — the single-column
+  // indexes above each cover only half the query, forcing a Postgres
+  // in-memory sort. This composite does the filter + order in one index
+  // scan as the notification table grows.
+  @@index([showroom_id, is_read, created_at])
   @@map("notifications")
 }
 
@@ -751,6 +758,12 @@ model Subscription {
   @@index([status])
   @@index([expires_at])
   @@index([plan_id])
+  // Batch 8 (S): jobs/scheduledNotifications.job.js's subscription scan
+  // filters status IN (ACTIVE/PENDING_PAYMENT) AND expires_at <= horizon
+  // in one query. status + expires_at as separate indexes force a bitmap
+  // combine + recheck; this composite serves the scan (and any future
+  // expiry-report) in a single index scan.
+  @@index([status, expires_at])
   // Phase A (P1-2): partial unique index created in raw SQL
   // (migration 20260813120000_phase_a_pending_claim_unique) — not
   // expressible in Prisma schema syntax:

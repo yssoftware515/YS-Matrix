@@ -84,7 +84,7 @@ async function createInstallmentSale({ down, monthly, months, firstDueDays = 30,
 // C6-DATE-01 — FRONTEND first_due_date FORMAT
 // ─────────────────────────────────────────
 test('C6-DATE-01: frontend-serialized first_due_date creates the sale; bare YYYY-MM-DD is still rejected', async () => {
-  const picked = '2026-09-10';
+  const picked = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
   const inv = await createInventory();
 
   // The real frontend payload after the C.6 fix — 201.

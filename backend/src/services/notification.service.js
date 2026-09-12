@@ -9,6 +9,28 @@ const logger = require('../config/logger');
 const { auditLog } = require('../middleware/audit.middleware');
 const { getPagination, buildPaginationMeta } = require('../utils/pagination');
 
+// Mirrors enum NotificationType in prisma/schema.prisma. Used ONLY to
+// validate the list filter before it reaches Prisma — an unknown value
+// would otherwise surface as a Prisma enum error (500) instead of a
+// clean 400 VALIDATION_ERROR. Keep in sync whenever the schema enum
+// gains a value.
+const VALID_NOTIFICATION_TYPES = new Set([
+  'INSTALLMENT_OVERDUE',
+  'INSTALLMENT_DUE_SOON',
+  'LICENSE_EXPIRING',
+  'LOW_STOCK',
+  'SALE_CREATED',
+  'SALE_CANCELLED',
+  'PAYMENT_RECEIVED',
+  'SYSTEM',
+  'SUBSCRIPTION_EXPIRING',
+  'SUBSCRIPTION_EXPIRED',
+  'SUBSCRIPTION_ACTIVATED',
+  'PAYMENT_SUBMITTED',
+  'PAYMENT_APPROVED',
+  'PAYMENT_REJECTED',
+]);
+
 // ─────────────────────────────────────────
 // CREATE — internal helper used by other services
 // ─────────────────────────────────────────
@@ -63,10 +85,31 @@ const listNotifications = async ({ showroomId, userId, query }) => {
   // Optional: scope to a specific user's notifications
   if (userId) where.user_id = userId;
 
+  // Batch 8 (R): validate the filters BEFORE they reach Prisma. A bad
+  // `type` used to surface as a Prisma enum error (500); a non-boolean
+  // `is_read` was silently coerced to false. Both now fail cleanly
+  // with a 400 VALIDATION_ERROR — a garbage filter belongs to the
+  // client, not to a server error bucket. Duplicate query keys
+  // (?type=a&type=b → array) are rejected here too, rather than
+  // exploding later inside the enum filter.
+  if (type !== undefined) {
+    if (!VALID_NOTIFICATION_TYPES.has(type)) {
+      throw Object.assign(new Error('قيمة نوع الإشعار غير صالحة.'), {
+        code:   'VALIDATION_ERROR',
+        errors: { type: 'قيمة غير صالحة' },
+      });
+    }
+    where.type = type;
+  }
   if (is_read !== undefined) {
+    if (is_read !== 'true' && is_read !== 'false') {
+      throw Object.assign(new Error('قيمة is_read يجب أن تكون true أو false.'), {
+        code:   'VALIDATION_ERROR',
+        errors: { is_read: 'يجب أن تكون true أو false' },
+      });
+    }
     where.is_read = is_read === 'true';
   }
-  if (type) where.type = type;
 
   const [notifications, total] = await Promise.all([
     prisma.notification.findMany({
