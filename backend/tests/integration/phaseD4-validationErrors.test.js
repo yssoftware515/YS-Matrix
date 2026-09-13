@@ -421,6 +421,23 @@ test('CONTRACT: GET /notifications returns expected shape', async () => {
   assert.ok(Array.isArray(res.body.data));
 });
 
+test('CONTRACT: GET /notifications filters are validated (Batch 8 R) — bad type/is_read/dup keys get 400, never a Prisma 500', async () => {
+  const badType = await api(base, 'GET', '/notifications?type=NOT_A_TYPE', { token: ownerAToken });
+  assert.strictEqual(badType.status, 400, 'unknown type must be rejected');
+  assert.strictEqual(badType.body.code, 'VALIDATION_ERROR', 'must use the standard validation contract');
+
+  const badIsRead = await api(base, 'GET', '/notifications?is_read=maybe', { token: ownerAToken });
+  assert.strictEqual(badIsRead.status, 400, 'non-boolean is_read must be rejected');
+  assert.strictEqual(badIsRead.body.code, 'VALIDATION_ERROR');
+
+  const dupKeys = await api(base, 'GET', '/notifications?type=SYSTEM&type=SYSTEM', { token: ownerAToken });
+  assert.strictEqual(dupKeys.status, 400, 'duplicate type keys (array) must be rejected');
+  assert.strictEqual(dupKeys.body.code, 'VALIDATION_ERROR');
+
+  const valid = await api(base, 'GET', '/notifications?type=SYSTEM&is_read=false', { token: ownerAToken });
+  assert.strictEqual(valid.status, 200, 'a valid type+is_read combo still works');
+});
+
 test('CONTRACT: GET /subscriptions/status returns expected fields', async () => {
   const res = await api(base, 'GET', '/subscriptions/status', { token: ownerAToken });
   assert.strictEqual(res.status, 200);
